@@ -392,17 +392,26 @@ body.has-disc .set-fab{ bottom:calc(11.4rem + env(safe-area-inset-bottom)); }
     <div id="merkez-kilit">
       <p style="font-size:.86rem; font-weight:700; color:#334155; line-height:1.5; margin:.2rem 0 .7rem;">Bu alan yalnızca <b>kurucu (Barış Öğretmen)</b> içindir.</p>
       <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:.9rem; padding:.75rem;">
-        <div style="font-weight:900; color:#1e3a8a; font-size:.84rem; margin-bottom:.5rem;"><i class="fas fa-cloud"></i> Firebase hesabıyla giriş <span style="font-size:.66rem; background:#dbeafe; padding:.1rem .4rem; border-radius:.5rem;">önerilen</span></div>
-        <input class="inp" id="merkez-email" placeholder="Gmail / e-posta" autocomplete="username" style="margin-bottom:.45rem;">
-        <input type="password" class="inp" id="merkez-sifre" placeholder="Şifre" autocomplete="current-password">
-        <button class="btn btn-primary" style="margin-top:.55rem;" onclick="merkeziGirisFirebase()"><i class="fas fa-right-to-bracket mr-1"></i> Firebase ile Giriş</button>
-        <div class="hint" style="margin-top:.4rem;">Firebase projendeki <b>Authentication → Sign-in method → Email/Password</b> açık olmalı ve bulut config bağlı olmalı.</div>
+        <div style="font-weight:900; color:#1e3a8a; font-size:.84rem; margin-bottom:.5rem;"><i class="fas fa-right-to-bracket"></i> Yönetici Girişi</div>
+        <input class="inp" id="merkez-email" placeholder="E-posta (Gmail)" autocomplete="username" style="margin-bottom:.45rem;">
+        <input type="password" class="inp" id="merkez-sifre" placeholder="Şifre" autocomplete="current-password" onkeydown="if(event.key==='Enter')merkeziGirisFirebase()">
+        <button class="btn btn-primary" style="margin-top:.55rem;" onclick="merkeziGirisFirebase()"><i class="fas fa-right-to-bracket mr-1"></i> Giriş Yap</button>
       </div>
-      <details style="margin-top:.6rem;"><summary style="font-weight:800; font-size:.8rem; color:#7c3aed; cursor:pointer;">🔑 veya yönetici şifresiyle gir (çevrimdışı / ilk kurulum)</summary>
-        <input type="password" class="inp" id="merkez-pin" placeholder="Yönetici şifresi" style="text-align:center; margin-top:.5rem;">
-        <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.45rem;" onclick="merkeziGiris()">Şifreyle Giriş</button>
+      <div id="merkez-hata" style="color:#dc2626; font-size:.8rem; font-weight:800; margin-top:.6rem; text-align:center; line-height:1.5;"></div>
+      <details id="merkez-kurulum" style="margin-top:.7rem;"><summary style="font-weight:800; font-size:.8rem; color:#2563eb; cursor:pointer;">☁️ İlk kurulum: bulutu bağla (bir kez · gerçek Gmail girişi için)</summary>
+        <div style="margin-top:.6rem; background:#f8fafc; padding:.7rem; border-radius:.8rem;">
+          <div class="hint" style="margin:0 0 .4rem;">Gmail hesabınla giriş ve <b>tüm cihazlara ortak anahtar</b> için Firebase web config'ini bir kez yapıştır. (Firebase Console → Project settings → "Your apps" → Web app → <b>firebaseConfig</b> nesnesi. Config gizli değildir.)</div>
+          <textarea class="inp" id="kilit-fb" rows="4" placeholder='{"apiKey":"AIza...","projectId":"...","authDomain":"...","appId":"..."}' style="resize:vertical; font-size:.74rem;"></textarea>
+          <button class="btn btn-emerald btn-sm" style="width:100%; margin-top:.4rem;" onclick="kilitFbKaydet()">☁️ Bağla</button>
+          <div id="kilit-fb-sonuc" style="font-size:.76rem; font-weight:800; margin-top:.4rem;"></div>
+          <div class="hint" style="margin-top:.5rem;">Bağladıktan sonra yukarıdan <b>gerçek Gmail e-postan ve şifrenle</b> gir. Firebase'de <b>Authentication → Sign-in method → Email/Password</b> açık olmalı ve o hesabı eklemiş olmalısın.</div>
+        </div>
       </details>
-      <div id="merkez-hata" style="color:#dc2626; font-size:.78rem; font-weight:800; margin-top:.5rem; text-align:center;"></div>
+      <details style="margin-top:.5rem;"><summary style="font-weight:800; font-size:.78rem; color:#7c3aed; cursor:pointer;">🔑 Bulutsuz gir (yönetici şifresi · sadece bu cihaz)</summary>
+        <div class="hint" style="margin-top:.4rem;">E-posta kutusuna bir şey yazmana gerek yok; sadece <b>yönetici şifreni</b> aşağıya yaz ve "Şifreyle Giriş"e bas. (Şifreni panelde değiştirebilirsin.)</div>
+        <input type="password" class="inp" id="merkez-pin" placeholder="Yönetici şifresi" style="text-align:center; margin-top:.4rem;" onkeydown="if(event.key==='Enter')merkeziGiris()">
+        <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.4rem;" onclick="merkeziGiris()">Şifreyle Giriş</button>
+      </details>
     </div>
     <div id="merkez-panel" class="hidden"></div>
   </div>
@@ -453,6 +462,7 @@ const GOMULU_ANAHTARLAR = [];
 /* ---- Ortak/merkezi altyapı (Barış bir kez doldurur; koda dokunmadan panelden de yönetilebilir) ---- */
 const GOMULU_FIREBASE = {}; /* Firebase web config'ini buraya bir kez yapıştır (herkeste ortak anahtar için). Config GİZLİ DEĞİLDİR, güvenle koda konur. Örn: {apiKey:"...",projectId:"..."} */
 const GOMULU_ADMIN_PIN = ''; /* Kurucu şifresi; boşsa varsayılan panelden değiştirilir */
+const GOMULU_ADMIN_EMAIL = 'barilkay466@gmail.com'; /* Kurucu e-postası (giriş kutusunda hazır gelir) */
 const WHATSAPP_NO = '905076319287'; /* Barış öğretmen WhatsApp (anahtar toplama) */
 /* Uygulama kimliği (PWA) */
 const APP_ADI = 'Değişim Koleji · Gelişim & Başarı Sistemi';
@@ -1985,12 +1995,22 @@ async function ZIRVE_merkezYukle(){
 
 /* ==================== MERKEZİ YÖNETİM (Kurucu paneli) ==================== */
 function adminPin(){ try{ const p=localStorage.getItem('dk_okul_adminpin'); if(p) return p; }catch(e){} return GOMULU_ADMIN_PIN || '2026'; }
-function merkeziYonetimAc(){ document.getElementById('merkez-kilit').classList.remove('hidden'); document.getElementById('merkez-panel').classList.add('hidden'); ['merkez-pin','merkez-email','merkez-sifre'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); const h=document.getElementById('merkez-hata'); h.innerText=''; h.style.color='#dc2626'; document.getElementById('merkez-modal').classList.add('open'); }
+function adminEmail(){ try{ const e=localStorage.getItem('dk_okul_adminemail'); if(e) return e; }catch(_){} return GOMULU_ADMIN_EMAIL||''; }
+function merkeziYonetimAc(){ document.getElementById('merkez-kilit').classList.remove('hidden'); document.getElementById('merkez-panel').classList.add('hidden'); const em=document.getElementById('merkez-email'); if(em) em.value=adminEmail(); ['merkez-sifre','merkez-pin'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); const kf=document.getElementById('kilit-fb-sonuc'); if(kf) kf.innerText=''; const h=document.getElementById('merkez-hata'); h.innerText=''; h.style.color='#dc2626'; document.getElementById('merkez-modal').classList.add('open'); }
 function merkeziYonetimKapat(){ document.getElementById('merkez-modal').classList.remove('open'); }
+function kilitFbKaydet(){
+  const raw=(document.getElementById('kilit-fb').value||'').trim(); const s=document.getElementById('kilit-fb-sonuc');
+  if(!raw){ s.style.color='#dc2626'; s.innerText='Firebase config\'i yapıştır.'; return; }
+  let cfg; try{ cfg=JSON.parse(raw); }catch(e){ s.style.color='#dc2626'; s.innerText='Geçersiz JSON. Config\'i tam ve süslü parantezleriyle yapıştır.'; return; }
+  if(!cfg.projectId||!cfg.apiKey){ s.style.color='#dc2626'; s.innerText='Config\'te apiKey ve projectId olmalı.'; return; }
+  try{ localStorage.setItem('dk_okul_fb',JSON.stringify(cfg)); }catch(e){}
+  s.style.color='#059669'; s.innerHTML='✅ Bulut bağlandı! Artık yukarıdan <b>Gmail e-postan ve şifrenle</b> giriş yapabilirsin.';
+  ZIRVE_merkezYukle && ZIRVE_merkezYukle();
+}
 function merkeziGiris(){
   const v=(document.getElementById('merkez-pin').value||'').trim();
   const h=document.getElementById('merkez-hata');
-  if(v!==adminPin()){ h.style.color='#dc2626'; h.innerText='Şifre hatalı.'; return; }
+  if(v!==adminPin()){ h.style.color='#dc2626'; h.innerText='Yönetici şifresi hatalı.'; return; }
   MERKEZ.auth=null;
   document.getElementById('merkez-kilit').classList.add('hidden');
   const p=document.getElementById('merkez-panel'); p.classList.remove('hidden'); merkezPanelCiz();
@@ -1999,13 +2019,24 @@ async function merkeziGirisFirebase(){
   const email=(document.getElementById('merkez-email').value||'').trim();
   const sifre=(document.getElementById('merkez-sifre').value||'').trim();
   const h=document.getElementById('merkez-hata');
-  if(!email||!sifre){ h.style.color='#dc2626'; h.innerText='E-posta ve şifre gir.'; return; }
-  h.style.color='#64748b'; h.innerText='Giriş yapılıyor...';
-  try{
-    const a=await fbAuthGiris(email,sifre); MERKEZ.auth=a; h.innerText='';
-    document.getElementById('merkez-kilit').classList.add('hidden');
-    const p=document.getElementById('merkez-panel'); p.classList.remove('hidden'); merkezPanelCiz();
-  }catch(e){ h.style.color='#dc2626'; h.innerText=fbAuthHata(e); }
+  if(!sifre){ h.style.color='#dc2626'; h.innerText='Şifreni gir.'; return; }
+  if(email){ try{ localStorage.setItem('dk_okul_adminemail',email); }catch(_){} }
+  const ac=()=>{ h.innerText=''; document.getElementById('merkez-kilit').classList.add('hidden'); const p=document.getElementById('merkez-panel'); p.classList.remove('hidden'); merkezPanelCiz(); };
+  // 1) Bulut bağlıysa gerçek Firebase (Gmail) girişi dene
+  if(fbReady() && email){
+    h.style.color='#64748b'; h.innerText='Giriş yapılıyor...';
+    try{ const a=await fbAuthGiris(email,sifre); MERKEZ.auth=a; ac(); return; }
+    catch(e){ const m=String(e&&e.message||e);
+      if(/INVALID_PASSWORD|INVALID_LOGIN_CREDENTIALS|EMAIL_NOT_FOUND|OPERATION_NOT_ALLOWED|TOO_MANY_ATTEMPTS/.test(m)){ h.style.color='#dc2626'; h.innerText=fbAuthHata(e); return; }
+      /* config/ağ hatası → yönetici şifresine düş */ }
+  }
+  // 2) Bulut yoksa: yönetici şifresiyle anında gir (çevrimdışı)
+  if(sifre===adminPin()){ MERKEZ.auth=null; ac(); return; }
+  // 3) Yardımcı yönlendirme
+  h.style.color='#b45309';
+  h.innerHTML = fbReady()
+    ? 'Şifre hatalı. Gmail şifreni kullanıyorsan doğru yazdığından emin ol; ya da yönetici şifreni gir.'
+    : 'Gerçek Gmail şifrenle girmek için önce aşağıdaki <b>☁️ İlk kurulum: bulutu bağla</b>\'yı yap. Şimdi hemen girmek istiyorsan <b>🔑 Bulutsuz gir</b>\'i aç ve yönetici şifreni yaz.';
 }
 function merkezPanelCiz(){
   const p=document.getElementById('merkez-panel');
