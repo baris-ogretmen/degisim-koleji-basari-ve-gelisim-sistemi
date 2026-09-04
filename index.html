@@ -197,6 +197,11 @@ body.has-disc .qr-fab{ bottom:calc(4.4rem + env(safe-area-inset-bottom)); }
 .key-fab{ position:fixed; right:.7rem; bottom:calc(4.2rem + env(safe-area-inset-bottom)); z-index:66; width:3rem; height:3rem; border-radius:50%; background:linear-gradient(135deg,#f59e0b,#fbbf24); color:#0b1e3f; border:none; font-size:1.05rem; box-shadow:0 8px 22px rgba(245,158,11,.45); cursor:pointer; opacity:.95; animation:keypulse 2.6s ease-in-out infinite; }
 @keyframes keypulse{ 0%,100%{ box-shadow:0 8px 22px rgba(245,158,11,.45);} 50%{ box-shadow:0 8px 30px rgba(245,158,11,.85);} }
 body.has-disc .key-fab{ bottom:calc(7.9rem + env(safe-area-inset-bottom)); }
+.set-fab{ position:fixed; right:.7rem; bottom:calc(7.7rem + env(safe-area-inset-bottom)); z-index:66; width:3rem; height:3rem; border-radius:50%; background:linear-gradient(135deg,#334155,#0b1e3f); color:#fff; border:none; font-size:1.05rem; box-shadow:0 8px 22px rgba(15,23,42,.45); cursor:pointer; opacity:.9; display:flex; align-items:center; justify-content:center; }
+body.has-disc .set-fab{ bottom:calc(11.4rem + env(safe-area-inset-bottom)); }
+.qr-fab,.key-fab,.set-fab{ display:flex; align-items:center; justify-content:center; touch-action:none; }
+.zx-fab{ position:absolute; top:-7px; right:-7px; width:1.3rem; height:1.3rem; border-radius:50%; background:#475569; color:#fff; border:2px solid #fff; font-size:.72rem; font-weight:900; display:flex; align-items:center; justify-content:center; cursor:pointer; line-height:1; z-index:2; }
+.zfab-dragging{ opacity:.85 !important; transform:scale(1.06); }
 @media print{ html{ zoom:1 !important; } nav,header .hdr-actions,.ai-disc,.net-toast,#ekran-pill,.qr-fab,.key-fab{ display:none !important; } }
 .pill-tag{ display:inline-block; font-size:.62rem; font-weight:900; padding:.15rem .5rem; border-radius:.5rem; letter-spacing:.3px; }
 </style>
@@ -205,8 +210,9 @@ body.has-disc .key-fab{ bottom:calc(7.9rem + env(safe-area-inset-bottom)); }
 
 <div id="net-toast" class="net-toast off"><i class="fas fa-wifi"></i> <span id="net-toast-text">İnternet kesildi</span></div>
 <div id="ekran-pill" style="display:none;" onclick="ZIRVE_ekranTikla(event)" title="Ekran modu"><span id="ekran-label">📺 Oto</span><button class="zx" onclick="ZIRVE_ekranGizle(event)">×</button></div>
-<button class="qr-fab hidden" id="qr-fab" onclick="qrAc()" title="QR ile paylaş"><i class="fas fa-qrcode"></i></button>
-<button class="key-fab hidden" id="key-fab" onclick="anahtarMerkeziAc()" title="Yapay Zekâ Anahtar Merkezi"><i class="fas fa-key"></i></button>
+<button class="qr-fab hidden" id="qr-fab" title="QR ile paylaş"><i class="fas fa-qrcode"></i><span class="zx-fab" data-fab="qr" title="Gizle">×</span></button>
+<button class="key-fab hidden" id="key-fab" title="Yapay Zekâ Anahtar Merkezi"><i class="fas fa-key"></i><span class="zx-fab" data-fab="key" title="Gizle">×</span></button>
+<button class="set-fab" id="set-fab" title="Ayarlar & Kurucu Paneli" style="display:none;"><i class="fas fa-gear"></i></button>
 
 <div class="ai-disc" id="ai-disc">
   <i class="fas fa-triangle-exclamation w"></i>
@@ -312,6 +318,7 @@ body.has-disc .key-fab{ bottom:calc(7.9rem + env(safe-area-inset-bottom)); }
     </div>
     <div id="ayar-sonuc" style="margin-top:.7rem; font-size:.8rem; font-weight:800;"></div>
     <div class="khealth" id="kh-panel"></div>
+    <div id="zfab-panel"></div>
     <div style="margin-top:1rem; border-top:1px dashed #e2e8f0; padding-top:.9rem;">
       <button class="btn btn-ghost btn-sm" style="width:100%; background:#fef2f2; color:#b91c1c; border-color:#fecaca;" onclick="merkeziYonetimAc()"><i class="fas fa-shield-halved mr-1"></i> Merkezi Yönetim (Kurucu)</button>
       <div class="hint" style="margin-top:.4rem;">Yalnızca Barış Öğretmen için: tüm okulda geçerli <b>Ortak AI Anahtarı</b> ve eğitim yılı buradan yönetilir.</div>
@@ -398,6 +405,37 @@ body.has-disc .key-fab{ bottom:calc(7.9rem + env(safe-area-inset-bottom)); }
       <div id="merkez-hata" style="color:#dc2626; font-size:.78rem; font-weight:800; margin-top:.5rem; text-align:center;"></div>
     </div>
     <div id="merkez-panel" class="hidden"></div>
+  </div>
+</div>
+
+<!-- ============ ÖĞRENME PROFİLİ ============ -->
+<div class="overlay" id="profil-modal">
+  <div class="modal" style="max-width:480px;">
+    <h2><i class="fas fa-compass"></i> Öğrenme Profili · <span id="profil-ad"></span> <button class="mclose" onclick="profilKapat()">×</button></h2>
+    <p style="font-size:.84rem; font-weight:700; color:#334155; line-height:1.55; margin:.2rem 0 .7rem;">Bu öğrenciyi tanıt. Sistem, <b>tüm anlatım, quiz, özel ders, Hoca ve etkinlikleri</b> bu profile göre uyarlar — böylece içerik ona göre kişiselleşir. <i>Öğretmen ya da veli doldurabilir.</i></p>
+    <div style="display:flex; flex-wrap:wrap; gap:.35rem; margin-bottom:.5rem;">
+      <button class="stu-chip" style="margin:0;" onclick="profilChip('Futbolu çok seviyor.')">⚽ Futbol</button>
+      <button class="stu-chip" style="margin:0;" onclick="profilChip('Hayvanlara/doğaya meraklı.')">🐾 Hayvanlar</button>
+      <button class="stu-chip" style="margin:0;" onclick="profilChip('Uzay ve gezegenlere ilgili.')">🚀 Uzay</button>
+      <button class="stu-chip" style="margin:0;" onclick="profilChip('Oyun/Minecraft seviyor.')">🎮 Oyun</button>
+      <button class="stu-chip" style="margin:0;" onclick="profilChip('Bol örnek ve görselle daha iyi anlıyor.')">🖼️ Örnek/görsel</button>
+      <button class="stu-chip" style="margin:0;" onclick="profilChip('Hikâye ile anlatılınca daha iyi anlıyor.')">📖 Hikâye</button>
+      <button class="stu-chip" style="margin:0;" onclick="profilChip('Adım adım, kısa parçalarla ilerlemeli.')">🪜 Adım adım</button>
+    </div>
+    <textarea class="inp" id="profil-serbest" rows="5" placeholder="Örn: Taha 7. sınıf. Futbolu çok sever, dikkati çabuk dağılır, uzun metinlerde sıkılır. Somut örnek ve günlük hayatla anlatınca hemen kavrıyor. Matematikte işlem hızına, Türkçe'de paragrafta zorlanıyor. Veli: evde kısa çalışıp ara vermesi iyi geliyor, övgüyle motive oluyor." style="resize:vertical;"></textarea>
+    <label class="lbl">Dikkat / tempo</label>
+    <div class="row3" id="profil-tempo">
+      <button class="lvl-btn" id="profil-tempo-kisa" onclick="profilTempo('kisa')">Kısa parçalar</button>
+      <button class="lvl-btn" id="profil-tempo-normal" onclick="profilTempo('normal')">Normal</button>
+      <button class="lvl-btn" id="profil-tempo-uzun" onclick="profilTempo('uzun')">Uzun odak</button>
+    </div>
+    <div id="profil-ozet-box"></div>
+    <div class="row2" style="margin-top:.8rem;">
+      <button class="btn btn-emerald btn-sm" style="width:100%;" onclick="profilKaydet(true)">💾 Kaydet</button>
+      <button class="btn btn-ghost btn-sm" style="width:100%; background:#eef2ff; color:#4338ca; border-color:#c7d2fe;" onclick="profilDerle()">🤖 AI ile Derle</button>
+    </div>
+    <div id="profil-sonuc" style="font-size:.82rem; font-weight:800; margin-top:.6rem; text-align:center;"></div>
+    <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.5rem; color:#dc2626;" onclick="profilTemizle()">🗑️ Profili Temizle</button>
   </div>
 </div>
 
@@ -653,11 +691,12 @@ async function callGeminiRaw(key, model, prompt, system){
 async function callText(prompt, system){
   if(!hasKey()) throw new Error('Anahtar yok');
   await ensureModels(); await rlBekle();
+  const sysF = (system||'') + ogrenmeProfilSys();
   const modeller=modelSirasi(); let sonHata=null, hepsiKota=(RING.keys.length>0);
   for(let k=0;k<RING.keys.length;k++){
     const key=RING.keys[(RING.i+k)%RING.keys.length]; let buAnahtarKota=false;
     for(const m of modeller){
-      try{ const r=await callGeminiRaw(key,m,prompt,system); RING.i=(RING.i+k)%RING.keys.length; return r; }
+      try{ const r=await callGeminiRaw(key,m,prompt,sysF); RING.i=(RING.i+k)%RING.keys.length; return r; }
       catch(e){ sonHata=e; const em=String(e.message||'');
         if(/429|RESOURCE_EXHAUSTED|quota/i.test(em)){ buAnahtarKota=true; break; } }
     }
@@ -694,7 +733,7 @@ const RICH='\n\nBİÇİM: <b> kalın, <i> italik, <h4> başlık, <ul><li> madde,
 function jsq(s){ return JSON.stringify(String(s)); }
 
 /* ==================== AYARLAR MODAL ==================== */
-function ayarAc(){ const m=document.getElementById('ayar-modal'); document.getElementById('ayar-keys').value=(RING.keys||[]).join('\n'); document.getElementById('ayar-model').value=SETTINGS.model||''; document.getElementById('ayar-sonuc').innerHTML=''; document.getElementById('kh-panel').innerHTML=''; m.classList.add('open'); }
+function ayarAc(){ const m=document.getElementById('ayar-modal'); document.getElementById('ayar-keys').value=(RING.keys||[]).join('\n'); document.getElementById('ayar-model').value=SETTINGS.model||''; document.getElementById('ayar-sonuc').innerHTML=''; document.getElementById('kh-panel').innerHTML=''; zFabPanelCiz(); m.classList.add('open'); }
 function ayarKapat(){ document.getElementById('ayar-modal').classList.remove('open'); }
 function ayarKaydet(){
   const keys=anahtarlariAyikla(document.getElementById('ayar-keys').value);
@@ -809,7 +848,8 @@ function yeniProfil(ad,soyad,kademe,sube){
   const sl=slug(ad+'-'+soyad+'-'+kademe);
   return { sl, ad:ad.trim(), soyad:(soyad||'').trim(), kademe, sube:(sube||'').trim(), olusturma:new Date().toISOString(),
     onboarded:false, seviye:{}, beceri:{}, veliGozlem:'', hedefSinav:(KADEMELER[kademe].sinav||null), saat:'',
-    kayitlar:[], denemeler:[], hatalar:{}, okunanKonu:{}, okulKonu:{}, gelisimGecmis:[], notlar:[], rozetMeta:{cozulen:0} };
+    kayitlar:[], denemeler:[], hatalar:{}, okunanKonu:{}, okulKonu:{}, gelisimGecmis:[], notlar:[], rozetMeta:{cozulen:0},
+    ogrenmeProfili:{ serbest:'', ozet:'', tempo:'', guncelleme:'' } };
 }
 function girisYap(){
   const ad=(document.getElementById('login-ad').value||'').trim();
@@ -1023,6 +1063,14 @@ function renderPanel(){
     +'<div style="flex:1;"><div style="font-size:.75rem; font-weight:800; opacity:.9;">'+kk.ad+(AKTIF.sube?(' · '+AKTIF.sube):'')+'</div>'
     +'<div style="font-size:1.15rem; font-weight:900; line-height:1.2;">Merhaba '+ilk+'! 👋</div>'
     +'<div style="font-size:.75rem; font-weight:700; opacity:.92; margin-top:.15rem;">Bugün de bir adım daha ileri.</div></div></div></div>';
+
+  // Öğrenme Profili (kişiselleştirme)
+  const pv=profilVarMi();
+  h+='<div class="card" style="border:2px solid '+(pv?'#6366f1':'#c7d2fe')+'; background:'+(pv?'#eef2ff':'#fff')+';"><h3 style="color:#4338ca;"><i class="fas fa-compass"></i> Öğrenme Profili '+(pv?'<span class="sub" style="color:#4338ca;">aktif ✓</span>':'')+'</h3>'
+    +'<p style="font-size:.82rem; font-weight:700; color:#475569; margin:0 0 .7rem; line-height:1.5;">'+(pv
+      ? ilk+'\'in içerikleri artık <b>kişisel öğrenme profiline göre</b> uyarlanıyor: örnekler ilgi alanından, dil ve tempo ona göre. İstediğin an güncelleyebilirsin.'
+      : '<b>'+ilk+' konuyu anlamayan öğrenci olmasın.</b> Onu birkaç cümleyle tanıt (ilgi alanı, nasıl daha iyi anlıyor, nerede zorlanıyor, veli notu) — tüm anlatım, quiz ve Hoca <b>ona göre</b> uyarlansın.')+'</p>'
+    +'<button class="btn '+(pv?'btn-ghost':'btn-primary')+'" style="'+(pv?'background:#e0e7ff;color:#4338ca;border-color:#c7d2fe;':'')+'" onclick="profilAc()"><i class="fas fa-'+(pv?'pen':'wand-magic-sparkles')+' mr-1"></i> '+(pv?'Profili Düzenle':'Öğrenme Profili Oluştur')+'</button></div>';
 
   // ⭐ GÜÇLÜ YÖNLERİN (Barış'ın felsefesi — önce güç)
   h+='<div class="card" style="border:2px solid #10b981;"><h3 style="color:#065f46;"><i class="fas fa-star"></i> Parlayan Yönlerin</h3>'
@@ -1842,6 +1890,7 @@ function welcGoster(){
     +'<ul style="padding-left:1.1rem; margin:0;">'
     +'<li style="margin-bottom:.4rem;"><b>Ad, soyad ve sınıf gir</b> → sistem <b>sınıf seviyene ve Maarif müfredatına</b> özel açılır.</li>'
     +'<li style="margin-bottom:.4rem;"><b>Güç odaklı çalışma</b>: sadece eksiği değil, <b>güçlü yönünü uçuran</b> içerikler.</li>'
+    +'<li style="margin-bottom:.4rem;">🧭 <b>Kişiye özel öğrenme:</b> her öğrenciyi tanıt (ilgi alanı, nasıl daha iyi anlıyor) → tüm anlatım, quiz ve Hoca <b>ona göre</b> uyarlanır. Hedefimiz: <b>konuyu anlamayan öğrenci olmasın.</b></li>'
     +'<li style="margin-bottom:.4rem;"><b>Gelişim Raporu</b>: radar grafikli beceri haritası + uzman AI raporu (veli toplantısı için).</li>'
     +'<li style="margin-bottom:.4rem;"><b>Sınav yolu</b>: 1-2-3 için BİLSEM provası, 5-6-7 için bursluluk deneme & analizi.</li>'
     +'<li>Anaokulu & özel eğitimde <b>veli değerlendirmesi</b> ve evde etkinlik rehberi.</li>'
@@ -2111,6 +2160,96 @@ function initPWA(){
 }
 function keyFabGoster(){ const f=document.getElementById('key-fab'); if(f) f.classList.remove('hidden'); }
 
+/* ==================== ÖĞRENME PROFİLİ (kişiselleştirme) ==================== */
+function ogrenmeProfilMetni(){
+  if(typeof AKTIF==='undefined'||!AKTIF||!AKTIF.ogrenmeProfili) return '';
+  const p=AKTIF.ogrenmeProfili; const t=(p.ozet||p.serbest||'').trim(); const tempo=(p.tempo||'').trim();
+  if(!t && !tempo) return '';
+  return (t?t:'')+(tempo?(' Dikkat/tempo: '+tempo+'.'):'');
+}
+function ogrenmeProfilSys(){
+  const m=ogrenmeProfilMetni(); if(!m) return '';
+  return '\n\n### ÖĞRENCİYE ÖZEL UYARLAMA (ÇOK ÖNEMLİ)\nBu öğrencinin öğrenme profili: '+m+'\nTüm anlatım, örnek, soru ve dili BU PROFİLE göre uyarla: onun ilgi alanlarından örnekler seç, anladığı seviye ve dile in, dikkat/tempo tercihine göre parçala, motive eden şeyi kullan, takıldığı noktaları özellikle ve sabırla aç. Hedef: bu öğrenci konuyu MUTLAKA, gerçekten anlasın. Profili doğrudan tekrar etme; sadece içeriğe yansıt.';
+}
+function profilVarMi(){ const m=ogrenmeProfilMetni(); return !!m; }
+function profilAc(){
+  if(!AKTIF) return; const p=AKTIF.ogrenmeProfili||{};
+  document.getElementById('profil-ad').innerText=ilkAd();
+  document.getElementById('profil-serbest').value=p.serbest||'';
+  document.getElementById('profil-ozet-box').innerHTML = p.ozet
+    ? '<div class="tip-box" style="margin:.6rem 0 0;"><b>🤖 AI derlemesi (kullanılan):</b><br>'+p.ozet+'</div>' : '';
+  ['kisa','normal','uzun'].forEach(t=>{ const b=document.getElementById('profil-tempo-'+t); if(b){ const on=(p.tempo===({kisa:'kısa parçalar',normal:'normal',uzun:'uzun odaklanabilir'})[t]); b.classList.toggle('sel',on); b.style.background=on?'#4338ca':''; b.style.color=on?'#fff':''; } });
+  document.getElementById('profil-sonuc').innerHTML='';
+  document.getElementById('profil-modal').classList.add('open');
+}
+function profilKapat(){ document.getElementById('profil-modal').classList.remove('open'); }
+let PROFIL_TEMPO='';
+function profilTempo(t){ const map={kisa:'kısa parçalar',normal:'normal',uzun:'uzun odaklanabilir'}; PROFIL_TEMPO=map[t]||''; ['kisa','normal','uzun'].forEach(x=>{ const b=document.getElementById('profil-tempo-'+x); if(b){ const on=x===t; b.classList.toggle('sel',on); b.style.background=on?'#4338ca':''; b.style.color=on?'#fff':''; } }); }
+function profilChip(txt){ const box=document.getElementById('profil-serbest'); box.value=(box.value?box.value.replace(/\s*$/,'')+' ':'')+txt+' '; box.focus(); }
+function profilKaydet(kapat){
+  if(!AKTIF) return;
+  const serbest=(document.getElementById('profil-serbest').value||'').trim();
+  AKTIF.ogrenmeProfili=AKTIF.ogrenmeProfili||{};
+  AKTIF.ogrenmeProfili.serbest=serbest;
+  if(PROFIL_TEMPO) AKTIF.ogrenmeProfili.tempo=PROFIL_TEMPO;
+  AKTIF.ogrenmeProfili.guncelleme=new Date().toISOString();
+  profKaydet();
+  const s=document.getElementById('profil-sonuc'); if(s){ s.style.color='#059669'; s.innerHTML='✅ Öğrenme profili kaydedildi. Artık tüm anlatım, quiz ve Hoca bu öğrenciye göre uyarlanacak.'; }
+  if(kapat){ profilKapat(); if(document.getElementById('view-panel').classList.contains('active')) renderPanel(); }
+}
+async function profilDerle(){
+  if(!requireKey()) return;
+  const serbest=(document.getElementById('profil-serbest').value||'').trim();
+  if(serbest.length<10){ const s=document.getElementById('profil-sonuc'); s.style.color='#b45309'; s.innerText='Önce öğrenciyi birkaç cümleyle tanıt.'; return; }
+  const box=document.getElementById('profil-ozet-box'); box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  const sys='Sen bir eğitim koçusun. Öğretmenin/velinin bir öğrenci hakkında yazdığı serbest notu al ve YAPAY ZEKÂNIN o öğrenciye anlatım uyarlaması için kullanacağı KISA, NET bir "öğrenme profili" özeti çıkar. 2-4 cümle. İçinde: ilgi alanları (örnek için), nasıl daha iyi anlıyor, dikkat/tempo, motivasyon, zorlandığı nokta. Uydurma; sadece verilenden çıkar, eksikse atla. Düz metin, madde işareti yok. Türkçe.';
+  try{
+    const t=await callText('Öğrenci: '+ilkAd()+' ('+K().ad+'). Öğretmen/veli notu: "'+serbest+'"\n\nBundan yapay zekânın kullanacağı kısa öğrenme profili özetini yaz.', sys);
+    const ozet=duzMetin(t).trim();
+    AKTIF.ogrenmeProfili.ozet=ozet; AKTIF.ogrenmeProfili.serbest=serbest; if(PROFIL_TEMPO)AKTIF.ogrenmeProfili.tempo=PROFIL_TEMPO; AKTIF.ogrenmeProfili.guncelleme=new Date().toISOString(); profKaydet();
+    box.innerHTML='<div class="tip-box" style="margin:.6rem 0 0;"><b>🤖 AI derlemesi (kaydedildi & kullanılacak):</b><br>'+ozet+'</div>';
+    const s=document.getElementById('profil-sonuc'); s.style.color='#059669'; s.innerHTML='✅ Profil derlendi ve kaydedildi.';
+  }catch(e){ box.innerHTML='<div class="warn-box" style="margin:.6rem 0 0;">'+hataCevir(e)+'</div>'; }
+}
+function profilTemizle(){ if(!AKTIF||!confirm('Bu öğrencinin öğrenme profili silinsin mi?')) return; AKTIF.ogrenmeProfili={ serbest:'', ozet:'', tempo:'', guncelleme:'' }; PROFIL_TEMPO=''; profKaydet(); profilAc(); if(document.getElementById('view-panel').classList.contains('active')) renderPanel(); }
+
+/* ==================== ZİRVE YÜZEN DÜĞMELER (sürükle / gizle / geri getir) ==================== */
+function zPosKey(k){ return 'dk_okul_pos_'+k; }
+function zGizKey(k){ return 'dk_okul_giz_'+k; }
+function zToast(msg){ const t=document.getElementById('net-toast'); if(!t) return; t.className='net-toast on'; t.querySelector('i').className='fas fa-circle-info'; document.getElementById('net-toast-text').innerText=msg; t.classList.add('show'); clearTimeout(zToast._t); zToast._t=setTimeout(()=>t.classList.remove('show'),3000); }
+function zKonumUygula(el,key){ try{ const r=localStorage.getItem(zPosKey(key)); if(r){ const p=JSON.parse(r); if(p&&p.l!=null){ el.style.left=p.l+'px'; el.style.top=p.t+'px'; el.style.right='auto'; el.style.bottom='auto'; } } }catch(e){} }
+function suruklenebilir(el,key,onTap){
+  if(!el) return; let sx,sy,ox,oy,moved=false,drag=false;
+  el.addEventListener('pointerdown',function(e){ if(e.target.closest('.zx-fab')) return; drag=true; moved=false; sx=e.clientX; sy=e.clientY; const r=el.getBoundingClientRect(); ox=r.left; oy=r.top; try{ el.setPointerCapture(e.pointerId); }catch(_){} });
+  el.addEventListener('pointermove',function(e){ if(!drag) return; const dx=e.clientX-sx, dy=e.clientY-sy; if(!moved && (Math.abs(dx)+Math.abs(dy))>5){ moved=true; el.classList.add('zfab-dragging'); } if(moved){ let l=Math.max(4,Math.min(innerWidth-el.offsetWidth-4,ox+dx)), t=Math.max(4,Math.min(innerHeight-el.offsetHeight-4,oy+dy)); el.style.left=l+'px'; el.style.top=t+'px'; el.style.right='auto'; el.style.bottom='auto'; } });
+  el.addEventListener('pointerup',function(e){ if(!drag) return; drag=false; el.classList.remove('zfab-dragging'); if(moved){ try{ localStorage.setItem(zPosKey(key),JSON.stringify({l:el.offsetLeft,t:el.offsetTop})); }catch(_){} } else if(onTap){ onTap(e); } });
+  zKonumUygula(el,key);
+}
+function zFabGizle(key){ try{ localStorage.setItem(zGizKey(key),'1'); }catch(e){} const el=document.querySelector('[data-fab="'+key+'"]'); const fab=el?el.closest('button'):null; if(fab) fab.style.display='none'; zToast('⚙️ Ayarlar → Yüzen Düğmeler\'den geri getirebilirsin'); if(document.getElementById('zfab-panel')) zFabPanelCiz(); }
+function zFabGizliMi(key){ return localStorage.getItem(zGizKey(key))==='1'; }
+function zFabGoster(key,fabId){ try{ localStorage.removeItem(zGizKey(key)); }catch(e){} const fab=document.getElementById(fabId); if(fab){ fab.classList.remove('hidden'); fab.style.display='flex'; } if(document.getElementById('zfab-panel')) zFabPanelCiz(); }
+function ZIRVE_fabBaslat(){
+  const set=document.getElementById('set-fab'), key=document.getElementById('key-fab'), qr=document.getElementById('qr-fab');
+  if(set){ set.style.display='flex'; suruklenebilir(set,'set',()=>ayarAc()); }
+  if(key){ suruklenebilir(key,'key',()=>anahtarMerkeziAc()); if(zFabGizliMi('key')) key.style.display='none'; }
+  if(qr){ suruklenebilir(qr,'qr',()=>qrAc()); }
+  document.querySelectorAll('.zx-fab').forEach(x=>{ x.addEventListener('click',function(e){ e.stopPropagation(); e.preventDefault(); zFabGizle(x.getAttribute('data-fab')); }); });
+}
+function zFabDurumlar(){ return [ {key:'key',id:'key-fab',ad:'🔑 Anahtar Merkezi'}, {key:'qr',id:'qr-fab',ad:'📲 QR Paylaş'} ]; }
+function zFabPanelCiz(){
+  const box=document.getElementById('zfab-panel'); if(!box) return;
+  let h='<div style="border-top:1px solid #eef2f7; margin-top:.9rem; padding-top:.7rem;"><div style="font-weight:900; font-size:.82rem; color:#334155; margin-bottom:.5rem;"><i class="fas fa-arrows-up-down-left-right"></i> Yüzen Düğmeler</div>'
+    +'<div class="hint" style="margin:0 0 .5rem;">Düğmeleri parmakla <b>sürükleyip</b> istediğin yere taşıyabilirsin; × ile gizlersin, buradan geri getirirsin. ⚙️ Ayarlar düğmesi hep kalır.</div>';
+  zFabDurumlar().forEach(f=>{ const gizli=zFabGizliMi(f.key);
+    h+='<div class="kh-item" style="justify-content:space-between;"><span>'+f.ad+'</span>'
+      +(gizli?'<button class="btn btn-emerald btn-sm" style="width:auto; padding:.3rem .7rem;" onclick="zFabGoster(\''+f.key+'\',\''+f.id+'\')">Göster</button>'
+             :'<button class="btn btn-ghost btn-sm" style="width:auto; padding:.3rem .7rem;" onclick="zFabGizle(\''+f.key+'\')">Gizle</button>')+'</div>';
+  });
+  h+='<button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.5rem;" onclick="zKonumSifirla()">📍 Konumları Sıfırla</button></div>';
+  box.innerHTML=h;
+}
+function zKonumSifirla(){ ['set','key','qr'].forEach(k=>{ try{ localStorage.removeItem(zPosKey(k)); }catch(e){} }); zToast('Konumlar sıfırlandı, yenileniyor...'); setTimeout(()=>location.reload(),700); }
+
 
 /* ==================== BAŞLAT ==================== */
 window.onload=function(){
@@ -2124,8 +2263,10 @@ window.onload=function(){
   document.getElementById('welc-modal').addEventListener('click', e=>{ if(e.target.id==='welc-modal') welcKapat(); });
   document.getElementById('anahtar-modal').addEventListener('click', e=>{ if(e.target.id==='anahtar-modal') anahtarMerkeziKapat(); });
   document.getElementById('merkez-modal').addEventListener('click', e=>{ if(e.target.id==='merkez-modal') merkeziYonetimKapat(); });
+  document.getElementById('profil-modal').addEventListener('click', e=>{ if(e.target.id==='profil-modal') profilKapat(); });
   renderStuList();
   try{ ZIRVE_ekranBaslat(); }catch(e){}
+  try{ ZIRVE_fabBaslat(); }catch(e){}
   welcGoster();
 };
 </script>
