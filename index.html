@@ -460,9 +460,17 @@ body.has-disc .set-fab{ bottom:calc(11.4rem + env(safe-area-inset-bottom)); }
 /* ---- Gömülü anahtarlar (Barış bir kez doldurur; boşsa localStorage'dan) ---- */
 const GOMULU_ANAHTARLAR = [];
 /* ---- Ortak/merkezi altyapı (Barış bir kez doldurur; koda dokunmadan panelden de yönetilebilir) ---- */
-const GOMULU_FIREBASE = {}; /* Boş: Firebase config'i Merkezi Yönetim → "☁️ İlk kurulum: bulutu bağla"dan manuel yapıştır. Config GİZLİ DEĞİLDİR. */
+const GOMULU_FIREBASE = {
+  apiKey: "AIzaSyAqeO-yQyQPnLsOqKmSNvVH23WPvneIjaU",
+  authDomain: "shaped-totem-481514-c5.firebaseapp.com",
+  projectId: "shaped-totem-481514-c5",
+  storageBucket: "shaped-totem-481514-c5.firebasestorage.app",
+  messagingSenderId: "519295049418",
+  appId: "1:519295049418:web:7d04e18c4ea36bc088de33",
+  measurementId: "G-10ENZQDXK1"
+}; /* Firebase web config — koda gömülü, tüm cihazlarda bulut baştan bağlı. Config GİZLİ DEĞİLDİR, güvenle koda konur. */
 const GOMULU_ADMIN_PIN = ''; /* Kurucu şifresi; boşsa varsayılan panelden değiştirilir */
-const GOMULU_ADMIN_EMAIL = 'barilkay466@gmail.com'; /* Kurucu e-postası (giriş kutusunda hazır gelir) */
+const GOMULU_ADMIN_EMAIL = ''; /* Kurucu e-postası; boş — giriş kutusuna elle yazılır (ilk girişte hatırlanır) */
 const WHATSAPP_NO = '905076319287'; /* Barış öğretmen WhatsApp (anahtar toplama) */
 /* Uygulama kimliği (PWA) */
 const APP_ADI = 'Değişim Koleji · Gelişim & Başarı Sistemi';
