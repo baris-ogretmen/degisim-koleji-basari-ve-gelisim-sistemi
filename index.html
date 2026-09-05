@@ -920,6 +920,7 @@ function acilisAkis(){
   if(!AKTIF.onboarded){ document.getElementById('main-nav').classList.add('hidden'); renderOnboard(); gorunum('onboard'); }
   else { document.getElementById('main-nav').classList.remove('hidden'); git('panel'); }
   window.scrollTo(0,0);
+  try{ merkeziProfilUygula(); }catch(e){}
 }
 
 /* ==================== DİNAMİK NAV ==================== */
@@ -2072,7 +2073,7 @@ function merkezPanelCiz(){
     +'<button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.4rem;" onclick="mzFbKaydet()">☁️ Config\'i Kaydet & Bağlan</button>'
     +'<div id="mz-fb-sonuc" style="font-size:.76rem; font-weight:800; margin-top:.4rem;"></div>'
     +'<div class="hint" style="margin-top:.6rem; border-top:1px dashed #e2e8f0; padding-top:.5rem;"><b>🔐 Güvenli kurulum (önerilen):</b><br>1) Firebase Console → <b>Authentication → Sign-in method → Email/Password</b>\'i aç, kendine bir hesap ekle (Gmail + şifre).<br>2) <b>Firestore Database</b> oluştur.<br>3) <b>Rules</b> sekmesine şu kuralı yapıştır (herkes okur, sadece giriş yapmış yönetici yazar):</div>'
-    +'<textarea class="inp" readonly rows="7" style="font-size:.66rem; font-family:monospace; background:#0b1220; color:#a7f3d0; margin-top:.4rem;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{db}/documents {\n    match /ayarlar/merkez {\n      allow read: if true;\n      allow write: if request.auth != null;\n    }\n  }\n}</textarea>'
+    +'<textarea class="inp" readonly rows="11" style="font-size:.62rem; font-family:monospace; background:#0b1220; color:#a7f3d0; margin-top:.4rem;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{db}/documents {\n    match /ayarlar/merkez {\n      allow read: if true;\n      allow write: if request.auth != null;\n    }\n    match /profiller/{id} {\n      allow get: if true;\n      allow list: if false;\n      allow write: if request.auth != null;\n    }\n  }\n}</textarea>'
     +'<div class="hint" style="margin-top:.3rem;">Böylece ortak anahtarı yalnızca <b>senin Firebase hesabınla giriş yaptığında</b> güncelleyebilirsin; veli/öğrenci sadece okur. Config gizli değildir, güvenle koda konur (<code>GOMULU_FIREBASE</code>).</div>'
     +'</div></details>';
   // Şifre değiştir
@@ -2081,10 +2082,74 @@ function merkezPanelCiz(){
   // Kaydet
   h+='<button class="btn btn-emerald" style="margin-top:1rem;" onclick="merkezKaydet()"><i class="fas fa-cloud-arrow-up mr-1"></i> Tümünü Kaydet & Yayınla</button>'
     +'<div id="mz-sonuc" style="font-size:.82rem; font-weight:800; margin-top:.6rem; text-align:center;"></div>';
+  // ---- Merkezi Öğrenme Profilleri ----
+  h+='<div style="border-top:2px dashed #e2e8f0; margin-top:1.1rem; padding-top:.9rem;">'
+    +'<div style="font-weight:900; font-size:.95rem; color:#4338ca;"><i class="fas fa-compass"></i> Öğrenme Profilleri (öğrenciye özel AI)</div>'
+    +'<div class="hint" style="margin:.3rem 0 .6rem;">Bir öğrencinin <b>ad-soyad-sınıfını</b> yaz ve profilini gir. O öğrenci kendi cihazından girdiğinde AI\'sı otomatik ona göre kişiselleşir. KVKK: profiller "sadece adını bilen erişir" (get-only) kuralıyla tutulur; hassas/özel bilgi yazma.</div>'
+    +'<div class="row2"><input class="inp" id="mp-ad" placeholder="Ad"><input class="inp" id="mp-soyad" placeholder="Soyad"></div>'
+    +'<select class="inp" id="mp-kademe" style="margin-top:.5rem;">'+KADEME_SIRA.map(k=>'<option value="'+k+'">'+KADEMELER[k].emoji+' '+KADEMELER[k].ad+'</option>').join('')+'</select>'
+    +'<textarea class="inp" id="mp-profil" rows="4" placeholder="Örn: Ali futbolu çok sever, dikkati çabuk dağılır. Somut örnek ve günlük hayatla anlatınca hemen kavrıyor. Matematikte işlem hızında zorlanıyor. Veli: kısa çalışıp ara vermesi ve övgüyle motive olması iyi geliyor." style="margin-top:.5rem; resize:vertical;"></textarea>'
+    +'<div class="row2" style="margin-top:.5rem;"><button class="btn btn-emerald btn-sm" style="width:100%;" onclick="mpKaydet()">💾 Profili Kaydet & Yayınla</button>'
+    +'<button class="btn btn-ghost btn-sm" style="width:100%; background:#eef2ff; color:#4338ca; border-color:#c7d2fe;" onclick="mpDerle()">🤖 AI ile Derle</button></div>'
+    +'<div id="mp-sonuc" style="font-size:.8rem; font-weight:800; margin-top:.5rem; text-align:center;"></div>'
+    +'<div id="mp-liste" style="margin-top:.7rem;"></div></div>';
   p.innerHTML=h;
   mzOrtakListele();
+  mpListele();
 }
-function mzMaskele(k){ k=String(k); if(k.length<=12) return k; return k.slice(0,8)+'…'+k.slice(-4); }
+/* --- Merkezi profil işleyicileri --- */
+function mpToken(){ return MERKEZ.auth && MERKEZ.auth.idToken; }
+async function mpKaydet(){
+  const ad=(document.getElementById('mp-ad').value||'').trim(), soyad=(document.getElementById('mp-soyad').value||'').trim(), kademe=document.getElementById('mp-kademe').value, profil=(document.getElementById('mp-profil').value||'').trim();
+  const s=document.getElementById('mp-sonuc');
+  if(ad.length<2){ s.style.color='#dc2626'; s.innerText='Öğrencinin adını yaz.'; return; }
+  if(profil.length<8){ s.style.color='#dc2626'; s.innerText='Profil metnini yaz.'; return; }
+  const sl=profilSlug(ad,soyad,kademe);
+  const veri={ ad, soyad, kademe, profil, ozet:(document.getElementById('mp-ozet-gizli')?document.getElementById('mp-ozet-gizli').value:'')||'', guncelleme:new Date().toISOString() };
+  s.style.color='#64748b'; s.innerText='Kaydediliyor...';
+  try{
+    const r=await merkeziProfilYaz(sl, veri, mpToken());
+    merkeziProfilIndexEkle({ slug:sl, ad, soyad, kademe });
+    s.style.color='#059669'; s.innerHTML = r.bulut ? ('✅ Kaydedildi ve <b>buluta yayınlandı</b>. '+ad+' girdiğinde AI ona göre açılır.') : ('✅ Bu cihaza kaydedildi. Buluta yayın için <b>Gmail ile giriş</b> yapmalısın (yönetici şifresiyle giren buluta yazamaz).');
+    ['mp-ad','mp-soyad','mp-profil'].forEach(id=>document.getElementById(id).value=''); mpListele();
+  }catch(e){ const em=String(e.message); s.style.color='#b45309'; s.innerHTML = /403|PERMISSION/i.test(em) ? 'Bu cihaza kaydedildi ama buluta yazılamadı (izin yok). <b>Gmail ile giriş</b> yap ve Firestore kurallarına /profiller iznini ekle.' : ('Bu cihaza kaydedildi; buluta gönderilemedi: '+em.slice(0,60)); }
+}
+async function mpDerle(){
+  if(!requireKey()) return;
+  const ad=(document.getElementById('mp-ad').value||'').trim(), kademe=document.getElementById('mp-kademe').value, profil=(document.getElementById('mp-profil').value||'').trim();
+  const s=document.getElementById('mp-sonuc'); if(profil.length<10){ s.style.color='#b45309'; s.innerText='Önce öğrenciyi birkaç cümleyle tanıt.'; return; }
+  s.style.color='#64748b'; s.innerText='AI derliyor...';
+  const sys='Sen bir eğitim koçusun. Öğretmenin bir öğrenci hakkında yazdığı notu, yapay zekânın o öğrenciye anlatımı uyarlaması için KISA NET bir öğrenme-özeti\'ne indir (2-4 cümle): ilgi alanları, nasıl daha iyi anlıyor, dikkat/tempo, motivasyon, zorlandığı nokta. Uydurma; düz metin. Türkçe.';
+  try{
+    const t=await callText('Öğrenci: '+(ad||'öğrenci')+' ('+KADEMELER[kademe].ad+'). Not: "'+profil+'"\n\nKısa öğrenme-özeti yaz.', sys);
+    const ozet=duzMetin(t).trim();
+    let hid=document.getElementById('mp-ozet-gizli'); if(!hid){ hid=document.createElement('input'); hid.type='hidden'; hid.id='mp-ozet-gizli'; document.getElementById('mp-liste').parentNode.appendChild(hid); }
+    hid.value=ozet;
+    s.style.color='#059669'; s.innerHTML='🤖 Derlendi (kaydedince kullanılacak):<br><span style="font-weight:700;color:#475569;">'+ozet+'</span>';
+  }catch(e){ s.style.color='#b45309'; s.innerText=hataCevir(e); }
+}
+function mpListele(){
+  const box=document.getElementById('mp-liste'); if(!box) return; const idx=merkeziProfilIndex();
+  if(!idx.length){ box.innerHTML='<div style="font-size:.74rem; color:#94a3b8; font-weight:700; text-align:center; padding:.4rem;">Henüz profil eklenmedi.</div>'; return; }
+  box.innerHTML='<div style="font-size:.74rem; font-weight:900; color:#64748b; margin-bottom:.3rem;">Kayıtlı profiller ('+idx.length+')</div>'+idx.slice().reverse().map(o=>{ const kk=KADEMELER[o.kademe]||{emoji:'',kisa:''};
+    return '<div style="display:flex; align-items:center; gap:.5rem; padding:.4rem .5rem; background:#f8fafc; border-radius:.6rem; margin-bottom:.3rem;"><span style="flex:1; font-size:.8rem; font-weight:800; color:#1e293b;">'+kk.emoji+' '+o.ad+' '+(o.soyad||'')+' <span style="color:#94a3b8; font-weight:700;">· '+(kk.kisa||'')+'</span></span>'
+      +'<button class="stu-chip" style="margin:0; padding:.25rem .5rem;" onclick="mpDuzenle(\''+o.slug+'\')">✏️</button>'
+      +'<button style="background:#fee2e2; color:#b91c1c; border:none; width:1.6rem; height:1.6rem; border-radius:50%; font-weight:900; cursor:pointer;" onclick="mpSil(\''+o.slug+'\')">×</button></div>';
+  }).join('');
+}
+async function mpDuzenle(sl){
+  const d=await merkeziProfilGetir(sl); if(!d) return;
+  document.getElementById('mp-ad').value=d.ad||''; document.getElementById('mp-soyad').value=d.soyad||''; if(d.kademe) document.getElementById('mp-kademe').value=d.kademe; document.getElementById('mp-profil').value=d.profil||'';
+  let hid=document.getElementById('mp-ozet-gizli'); if(hid) hid.value=d.ozet||'';
+  document.getElementById('mp-ad').scrollIntoView({behavior:'smooth',block:'center'});
+}
+async function mpSil(sl){
+  if(!confirm('Bu öğrenme profili silinsin mi?')) return;
+  merkeziProfilIndexKaydet(merkeziProfilIndex().filter(x=>x.slug!==sl));
+  try{ localStorage.removeItem('dk_okul_mprofil_'+sl); }catch(e){}
+  if(fbReady()){ try{ await firestoreSet('profiller', sl, { profil:'', ozet:'', silindi:'1', guncelleme:new Date().toISOString() }, mpToken()); }catch(e){} }
+  mpListele();
+}
 function mzOrtakListele(){
   const box=document.getElementById('mz-ortak'); if(!box) return;
   let arr=anahtarlariAyikla(box.value); if(arr.length>1000){ arr=arr.slice(0,1000); box.value=arr.join('\n'); }
@@ -2199,16 +2264,55 @@ function initPWA(){
 }
 function keyFabGoster(){ const f=document.getElementById('key-fab'); if(f) f.classList.remove('hidden'); }
 
+/* ==================== MERKEZİ ÖĞRENME PROFİLLERİ (yönetici → bulut → öğrenci) ==================== */
+function profilSlug(ad,soyad,kademe){ return slug((ad||'')+'-'+(soyad||'')+'-'+(kademe||'')); }
+function merkeziProfilIndex(){ try{ return JSON.parse(localStorage.getItem('dk_okul_mprofil_idx')||'[]'); }catch(e){ return []; } }
+function merkeziProfilIndexKaydet(a){ try{ localStorage.setItem('dk_okul_mprofil_idx',JSON.stringify(a)); }catch(e){} }
+function merkeziProfilIndexEkle(o){ const idx=merkeziProfilIndex().filter(x=>x.slug!==o.slug); idx.push(o); merkeziProfilIndexKaydet(idx); }
+async function merkeziProfilYaz(slugId, veri, token){
+  // yerel yedek
+  try{ localStorage.setItem('dk_okul_mprofil_'+slugId, JSON.stringify(veri)); }catch(e){}
+  if(!fbReady()) return {bulut:false};
+  await firestoreSet('profiller', slugId, veri, token);
+  return {bulut:true};
+}
+async function merkeziProfilGetir(slugId){
+  // önce yerel
+  let yerel=null; try{ const r=localStorage.getItem('dk_okul_mprofil_'+slugId); if(r) yerel=JSON.parse(r); }catch(e){}
+  if(fbReady()){ try{ const d=await firestoreGet('profiller', slugId); if(d && (d.profil||d.ozet)) return d; }catch(e){} }
+  return yerel;
+}
+async function merkeziProfilUygula(){
+  if(!AKTIF) return;
+  const sl=profilSlug(AKTIF.ad,AKTIF.soyad,AKTIF.kademe);
+  const d=await merkeziProfilGetir(sl); if(!d) return;
+  const ozet=(d.ozet||d.profil||'').trim(); if(!ozet) return;
+  AKTIF.ogrenmeProfili=AKTIF.ogrenmeProfili||{};
+  // merkezî profil önceliklidir; öğretmenin girdiği geçerli olsun
+  AKTIF.ogrenmeProfili.merkezi=ozet;
+  if(!AKTIF.ogrenmeProfili.serbest) AKTIF.ogrenmeProfili.serbest=d.profil||'';
+  profKaydet();
+  if(document.getElementById('view-panel').classList.contains('active')) renderPanel();
+}
+
 /* ==================== ÖĞRENME PROFİLİ (kişiselleştirme) ==================== */
 function ogrenmeProfilMetni(){
   if(typeof AKTIF==='undefined'||!AKTIF||!AKTIF.ogrenmeProfili) return '';
-  const p=AKTIF.ogrenmeProfili; const t=(p.ozet||p.serbest||'').trim(); const tempo=(p.tempo||'').trim();
+  const p=AKTIF.ogrenmeProfili; const t=(p.merkezi||p.ozet||p.serbest||'').trim(); const tempo=(p.tempo||'').trim();
   if(!t && !tempo) return '';
   return (t?t:'')+(tempo?(' Dikkat/tempo: '+tempo+'.'):'');
 }
 function ogrenmeProfilSys(){
   const m=ogrenmeProfilMetni(); if(!m) return '';
-  return '\n\n### ÖĞRENCİYE ÖZEL UYARLAMA (ÇOK ÖNEMLİ)\nBu öğrencinin öğrenme profili: '+m+'\nTüm anlatım, örnek, soru ve dili BU PROFİLE göre uyarla: onun ilgi alanlarından örnekler seç, anladığı seviye ve dile in, dikkat/tempo tercihine göre parçala, motive eden şeyi kullan, takıldığı noktaları özellikle ve sabırla aç. Hedef: bu öğrenci konuyu MUTLAKA, gerçekten anlasın. Profili doğrudan tekrar etme; sadece içeriğe yansıt.';
+  return '\n\n### BU ÖĞRENCİYE ÖZEL UYARLAMA — EN ÖNEMLİ KURAL\nÖğrenme profili: '+m+'\n'
+    +'Bu öğrenci konuyu ANLAYANA KADAR, ONA GÖRE anlatmak senin bir numaralı görevin. Şu yöntemi uygula:\n'
+    +'1) KANCA: konuya, öğrencinin ilgi alanından somut bir örnek/benzetmeyle gir.\n'
+    +'2) SEVİYE: onun anladığı dile in; bilmediği terimi önce basitçe tanımla; gereksiz ağır kelime kullanma.\n'
+    +'3) PARÇALA: dikkat/tempo tercihine göre küçük adımlara böl; her adımda tek fikir.\n'
+    +'4) HEDEFLE: takıldığı/yanlış anladığı noktayı tahmin edip tam oraya odaklan, sabırla çöz.\n'
+    +'5) MOTİVASYON: onu motive eden şeyi (övgü/merak/oyun/yarış) tonuna yansıt; asla küçümseme, hep cesaretlendir.\n'
+    +'6) KONTROL: sonunda "anladın mı" yerine kavramayı ölçen minik bir örnek/soruyla kapat.\n'
+    +'Profili doğrudan yazma/tekrarlama; sadece içeriğe, örneklere ve dile yansıt. Uydurma; müfredata sadık kal.';
 }
 function profilVarMi(){ const m=ogrenmeProfilMetni(); return !!m; }
 function profilAc(){
