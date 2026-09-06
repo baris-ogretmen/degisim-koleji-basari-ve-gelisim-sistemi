@@ -746,8 +746,14 @@ async function callJSON(prompt, system){
   try{ return JSON.parse(s); }catch(e){ throw new Error('JSON okunamadı'); }
 }
 function requireKey(){
-  if(!hasKey()){ anahtarMerkeziAc(); return false; }
+  if(!hasKey()){ anahtarMerkeziAc(); try{ zToast('🔑 AI için önce ücretsiz bir anahtar gerekli'); }catch(e){} return false; }
   return true;
+}
+function anahtarUyariHTML(){
+  if(hasKey()) return '';
+  return '<div class="card" style="border:2px solid #f59e0b; background:#fffbeb;"><h3 style="color:#b45309;"><i class="fas fa-triangle-exclamation"></i> Yapay Zekâ Şu An Kapalı</h3>'
+    +'<p style="font-size:.85rem; font-weight:700; color:#92400e; margin:0 0 .7rem; line-height:1.55;">Anlatım, quiz, özel ders, Hoca ve kart üretimi gibi <b>AI içerikleri için ücretsiz bir Gemini anahtarı gerekiyor.</b> Anahtar eklenene kadar bu butonlar içerik üretmez. (Panel, karne, gelişim raporu ve grafikler anahtarsız da çalışır.)</p>'
+    +'<button class="btn btn-gold" onclick="anahtarMerkeziAc()">🔑 Ücretsiz Anahtar Ekle / AI\'yı Aç</button></div>';
 }
 
 /* ==================== TEMİZ METİN ==================== */
@@ -978,7 +984,7 @@ function renderOnboard(){
   const veliMod = (kk.mod==='veli');
   const birlikte = (kk.mod==='birlikte');
   // Hero metni
-  document.getElementById('onb-hero-txt').innerText = veliMod
+  document.getElementById('onb-hero-txt').innerHTML = veliMod
     ? ('Sevgili veli, '+ilk+' için birkaç kısa değerlendirme yapalım. Çocuğunuzu gözleminize göre işaretleyin; sistem ona özel bir gelişim yolculuğu ve etkinlik planı kursun. 2 dakika sürer.')
     : birlikte
       ? (ilk+', velinle birlikte doldur. Her alanda kendini nasıl gördüğünü işaretle; sistem sana özel bir plan kursun.')
@@ -1099,6 +1105,8 @@ function renderPanel(){
     +'<div style="font-size:1.15rem; font-weight:900; line-height:1.2;">Merhaba '+ilk+'! 👋</div>'
     +'<div style="font-size:.75rem; font-weight:700; opacity:.92; margin-top:.15rem;">Bugün de bir adım daha ileri.</div></div></div></div>';
 
+  h+=anahtarUyariHTML();
+
   // Öğrenme Profili (kişiselleştirme)
   const pv=profilVarMi();
   h+='<div class="card" style="border:2px solid '+(pv?'#6366f1':'#c7d2fe')+'; background:'+(pv?'#eef2ff':'#fff')+';"><h3 style="color:#4338ca;"><i class="fas fa-compass"></i> Öğrenme Profili '+(pv?'<span class="sub" style="color:#4338ca;">aktif ✓</span>':'')+'</h3>'
@@ -1184,7 +1192,8 @@ let CALIS_TRACK='guc'; // 'guc' | 'tak'
 let CALIS_DERS=null;
 function renderCalis(){
   const el=document.getElementById('view-calis'); const gelisim=isGelisim();
-  let h='<div class="card" style="background:linear-gradient(135deg,#065f46,#10b981); color:#fff; border:none;">'
+  let h=anahtarUyariHTML();
+  h+='<div class="card" style="background:linear-gradient(135deg,#065f46,#10b981); color:#fff; border:none;">'
     +'<h3 style="color:#fff;"><i class="fas fa-'+(gelisim?'shapes':'book-open-reader')+'"></i> '+(gelisim?'Etkinlik Merkezi':'Çalışma Sistemi')+'</h3>'
     +'<p style="font-weight:700; font-size:.85rem; opacity:.95; line-height:1.5; margin:0;">'+(gelisim
       ?'Bir gelişim alanı seç. Sistem, çocuğun için <b>evde yapılabilecek</b> eğlenceli etkinlikler ve veliye rehber hazırlar. Güçlü alanları daha da parlatır, filizlenen alanları destekler.'
