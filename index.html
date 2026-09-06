@@ -147,16 +147,47 @@ nav::-webkit-scrollbar{ display:none; }
 .progress-fill{ background:linear-gradient(90deg,var(--emerald),var(--gold)); height:100%; transition:width .4s ease; }
 
 /* AI content */
-.content-html{ font-size:.98rem; line-height:1.7; color:#334155; }
-.content-html h4{ color:var(--navy2); font-size:1.08rem; font-weight:900; margin:1.3rem 0 .7rem; padding-bottom:.35rem; border-bottom:2px dashed #bfdbfe; }
-.content-html h5{ color:#be185d; font-weight:900; margin:1rem 0 .4rem; }
-.content-html ul{ list-style:none; padding-left:0; }
-.content-html li{ position:relative; margin-bottom:.55rem; background:#f8fafc; padding:.6rem .7rem .6rem 1.9rem; border-radius:.7rem; border-left:4px solid #93c5fd; }
-.content-html li::before{ content:'🎯'; position:absolute; left:.5rem; top:.6rem; font-size:.8rem; }
-.content-html table{ width:100%; border-collapse:collapse; margin:.8rem 0; font-size:.85rem; border-radius:.7rem; overflow:hidden; }
-.content-html th{ background:var(--navy2); color:#fff; padding:.5rem; text-align:left; }
-.content-html td{ padding:.5rem; border-bottom:1px solid #e2e8f0; }
-.content-html b{ color:#0f172a; }
+.content-html{ font-size:1rem; line-height:1.75; color:#1e293b; }
+.content-html > *:first-child{ margin-top:0; }
+.content-html p{ margin:.55rem 0; }
+.content-html h4{ position:relative; color:#12306b; font-size:1.13rem; font-weight:900; margin:1.5rem 0 .75rem; padding:.4rem .5rem .45rem .95rem; background:linear-gradient(90deg,#eff6ff,rgba(239,246,255,0)); border-radius:.6rem; border:none; }
+.content-html h4::before{ content:''; position:absolute; left:0; top:.3rem; bottom:.3rem; width:6px; border-radius:4px; background:linear-gradient(180deg,#f59e0b,#10b981); }
+.content-html h5{ color:#be185d; font-weight:900; font-size:1.01rem; margin:1rem 0 .4rem; }
+.content-html ul{ list-style:none; padding-left:0; margin:.55rem 0; }
+.content-html li{ position:relative; margin-bottom:.5rem; background:#f8fafc; padding:.68rem .85rem .68rem 2.1rem; border-radius:.85rem; border-left:4px solid #93c5fd; box-shadow:0 1px 4px rgba(15,23,42,.05); }
+.content-html li::before{ content:'✨'; position:absolute; left:.62rem; top:.66rem; font-size:.9rem; }
+.content-html li:nth-child(5n+1){ border-left-color:#10b981; background:#ecfdf5; } .content-html li:nth-child(5n+1)::before{ content:'🌱'; }
+.content-html li:nth-child(5n+2){ border-left-color:#f59e0b; background:#fffbeb; } .content-html li:nth-child(5n+2)::before{ content:'⭐'; }
+.content-html li:nth-child(5n+3){ border-left-color:#8b5cf6; background:#f5f3ff; } .content-html li:nth-child(5n+3)::before{ content:'💡'; }
+.content-html li:nth-child(5n+4){ border-left-color:#ec4899; background:#fdf2f8; } .content-html li:nth-child(5n+4)::before{ content:'🎯'; }
+.content-html li:nth-child(5n+5){ border-left-color:#0ea5e9; background:#eff6ff; } .content-html li:nth-child(5n+5)::before{ content:'🚀'; }
+.content-html ol{ padding-left:1.4rem; margin:.55rem 0; counter-reset:oc; list-style:none; }
+.content-html ol li{ background:none; box-shadow:none; border-left:none; padding:.2rem 0 .2rem 2.2rem; }
+.content-html ol li::before{ counter-increment:oc; content:counter(oc); position:absolute; left:0; top:.15rem; width:1.5rem; height:1.5rem; background:linear-gradient(135deg,#12306b,#1e40af); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.78rem; font-weight:900; }
+.content-html table{ width:100%; border-collapse:separate; border-spacing:0; margin:.95rem 0; font-size:.86rem; border-radius:.85rem; overflow:hidden; box-shadow:0 2px 10px rgba(15,23,42,.07); }
+.content-html th{ background:linear-gradient(135deg,#12306b,#1e40af); color:#fff; padding:.6rem .55rem; text-align:left; font-weight:800; }
+.content-html td{ padding:.58rem .55rem; border-bottom:1px solid #eef2f7; }
+.content-html tr:nth-child(even) td{ background:#f8fafc; }
+.content-html b,.content-html strong{ color:#0b1e3f; font-weight:800; }
+.content-html em{ color:#7c3aed; font-style:italic; }
+.content-html blockquote{ margin:.85rem 0; padding:.75rem 1rem; background:#fdf2f8; border-left:5px solid #ec4899; border-radius:0 .85rem .85rem 0; color:#9d174d; font-weight:600; }
+.content-html hr{ border:none; border-top:2px dashed #e2e8f0; margin:1.1rem 0; }
+.content-html mark, .content-html span[style*="background"]{ border-radius:.3rem; padding:0 .2rem; }
+/* ---- PDF / Yazdırma alanı ---- */
+#print-area{ display:none; }
+#print-area .pa-head{ display:flex; align-items:center; gap:.7rem; border-bottom:3px solid #f59e0b; padding-bottom:.6rem; margin-bottom:.4rem; }
+#print-area .pa-logo{ width:3rem; height:3rem; border-radius:.8rem; background:linear-gradient(135deg,#f59e0b,#fbbf24); color:#0b1e3f; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1.2rem; }
+#print-area .pa-t{ font-size:1.3rem; font-weight:900; color:#0b1e3f; line-height:1.1; }
+#print-area .pa-s{ font-size:.8rem; font-weight:800; color:#059669; text-transform:uppercase; letter-spacing:.5px; }
+#print-area .pa-meta{ font-size:.9rem; font-weight:700; color:#475569; margin-bottom:1rem; }
+#print-area .pa-foot{ margin-top:1.5rem; padding-top:.6rem; border-top:2px dashed #cbd5e1; font-size:.75rem; font-weight:700; color:#94a3b8; text-align:center; }
+@media print{
+  @page{ margin:14mm; }
+  body.printing{ background:#fff !important; }
+  body.printing > *{ display:none !important; }
+  body.printing > #print-area{ display:block !important; }
+  #print-area{ -webkit-print-color-adjust:exact; print-color-adjust:exact; color:#1e293b; }
+}
 .tip-box{ background:#ecfdf5; border-left:5px solid #10b981; color:#065f46; padding:.9rem; border-radius:0 .9rem .9rem 0; font-weight:700; margin:.9rem 0; font-size:.9rem; }
 .warn-box{ background:#fef2f2; border-left:5px solid #ef4444; color:#991b1b; padding:.9rem; border-radius:0 .9rem .9rem 0; font-weight:800; margin:.9rem 0; font-size:.9rem; }
 .banko{ background:linear-gradient(135deg,#fffbeb,#fef3c7); border:2px solid #f59e0b; padding:1rem; border-radius:1rem; margin:1rem 0; font-weight:700; font-size:.9rem; }
@@ -464,6 +495,8 @@ body.has-disc .set-fab{ bottom:calc(11.4rem + env(safe-area-inset-bottom)); }
   </div>
 </div>
 
+<div id="print-area"></div>
+
 <script>
 /* ==================================================================
    DEĞİŞİM KOLEJİ · GELİŞİM & BAŞARI SİSTEMİ
@@ -764,10 +797,25 @@ function duzMetin(html){
   t=t.replace(/^#{1,6}\s*/gm,'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/`/g,'');
   return t.replace(/\n{3,}/g,'\n\n').trim();
 }
-function aiToolbar(){ return '<div class="ai-tools"><button onclick="aiKopya(this)">📋 Kopyala</button><button onclick="aiPaylas(this)">📤 Paylaş</button><button onclick="aiSesli(this)">🔊 Dinle</button></div>'; }
+function aiToolbar(){ return '<div class="ai-tools"><button onclick="aiKopya(this)">📋 Kopyala</button><button onclick="pdfYap(this)">📄 PDF</button><button onclick="aiPaylas(this)">📤 Paylaş</button><button onclick="aiSesli(this)">🔊 Dinle</button></div>'; }
 function aiKopya(btn){ const t=duzMetin(btn.closest('.ai-wrap').querySelector('.ai-body').innerHTML); navigator.clipboard.writeText(t).then(()=>{ btn.textContent='✓ Kopyalandı'; setTimeout(()=>btn.textContent='📋 Kopyala',1500); }); }
 function aiPaylas(btn){ const t=duzMetin(btn.closest('.ai-wrap').querySelector('.ai-body').innerHTML); if(navigator.share){ navigator.share({title:'Değişim Koleji', text:t}).catch(()=>{}); } else aiKopya(btn); }
 function aiSesli(btn){ const t=duzMetin(btn.closest('.ai-wrap').querySelector('.ai-body').innerHTML); try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='tr-TR'; speechSynthesis.speak(u); }catch(e){} }
+function pdfYap(btn){
+  const wrap=btn.closest('.ai-wrap'); const body=wrap?wrap.querySelector('.ai-body'):null; if(!body) return;
+  const icerik=body.innerHTML;
+  const ad=(typeof AKTIF!=='undefined'&&AKTIF)?tamAd():''; const kad=(typeof K==='function'&&K())?K().ad:'';
+  const pa=document.getElementById('print-area'); if(!pa) return;
+  pa.innerHTML='<div class="pa-head"><div class="pa-logo">DK</div><div><div class="pa-t">Değişim Koleji</div><div class="pa-s">Gelişim & Başarı Sistemi</div></div></div>'
+    +'<div class="pa-meta">'+(ad?('👤 <b>'+ad+'</b>'+(kad?(' · '+kad):'')+' · '):'')+'📅 '+new Date().toLocaleDateString('tr-TR')+'</div>'
+    +'<div class="content-html">'+icerik+'</div>'
+    +'<div class="pa-foot">Değişim Koleji · Gelişim & Başarı Sistemi · Barış Öğretmen</div>';
+  try{ ZIRVE_ekranReset&&ZIRVE_ekranReset(); }catch(e){}
+  document.body.classList.add('printing');
+  const bitir=function(){ document.body.classList.remove('printing'); try{ ZIRVE_ekranGeri&&ZIRVE_ekranGeri(); }catch(e){} window.removeEventListener('afterprint',bitir); };
+  window.addEventListener('afterprint',bitir);
+  setTimeout(function(){ try{ window.print(); }catch(e){} setTimeout(bitir,3000); }, 120);
+}
 function renderAI(box, innerHTML){ box.innerHTML='<div class="ai-wrap">'+aiToolbar()+'<div class="ai-body">'+innerHTML+'</div></div>'; discGoster(); }
 const RICH='\n\nBİÇİM: <b> kalın, <i> italik, <h4> başlık, <ul><li> madde, <table> tablo kullan. Renkli vurgular için <span style="background:#fef08a;padding:0 3px">...</span> kullanabilirsin. Örnekler ver, benzetme kur, akılda kalıcı şifreler üret. Markdown (#,*) ve LaTeX ($,\\frac) ASLA kullanma. Türkçe yaz.';
 function jsq(s){ return "'"+String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\r?\n/g,' ')+"'"; }
