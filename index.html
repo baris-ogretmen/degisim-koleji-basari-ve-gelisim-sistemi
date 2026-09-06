@@ -770,7 +770,7 @@ function aiPaylas(btn){ const t=duzMetin(btn.closest('.ai-wrap').querySelector('
 function aiSesli(btn){ const t=duzMetin(btn.closest('.ai-wrap').querySelector('.ai-body').innerHTML); try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='tr-TR'; speechSynthesis.speak(u); }catch(e){} }
 function renderAI(box, innerHTML){ box.innerHTML='<div class="ai-wrap">'+aiToolbar()+'<div class="ai-body">'+innerHTML+'</div></div>'; discGoster(); }
 const RICH='\n\nBİÇİM: <b> kalın, <i> italik, <h4> başlık, <ul><li> madde, <table> tablo kullan. Renkli vurgular için <span style="background:#fef08a;padding:0 3px">...</span> kullanabilirsin. Örnekler ver, benzetme kur, akılda kalıcı şifreler üret. Markdown (#,*) ve LaTeX ($,\\frac) ASLA kullanma. Türkçe yaz.';
-function jsq(s){ return JSON.stringify(String(s)); }
+function jsq(s){ return "'"+String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\r?\n/g,' ')+"'"; }
 
 /* ==================== AYARLAR MODAL ==================== */
 function ayarAc(){ const m=document.getElementById('ayar-modal'); document.getElementById('ayar-keys').value=(RING.keys||[]).join('\n'); document.getElementById('ayar-model').value=SETTINGS.model||''; document.getElementById('ayar-sonuc').innerHTML=''; document.getElementById('kh-panel').innerHTML=''; zFabPanelCiz(); m.classList.add('open'); }
