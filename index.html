@@ -2420,7 +2420,7 @@ let PWA_INSTALL=null;
 window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); PWA_INSTALL=e; const w=document.getElementById('pwa-install-wrap'); if(w) w.style.display='block'; });
 window.addEventListener('appinstalled', function(){ PWA_INSTALL=null; const w=document.getElementById('pwa-install-wrap'); if(w) w.style.display='none'; });
 async function pwaYukle(){
-  if(!PWA_INSTALL){ alert('Bu cihazda tek dokunuşla kurmak için tarayıcı menüsünü kullan:\n• iPhone (Safari): Paylaş → "Ana Ekrana Ekle"\n• Android (Chrome): ⋮ → "Ana ekrana ekle / Uygulamayı yükle"\n• Bilgisayar/Akıllı tahta (Chrome/Edge): ⋮ → "Yükle" veya "Kısayol oluştur → Pencere olarak aç"'); return; }
+  if(!PWA_INSTALL){ alert('Bu cihazda ana ekrana eklemek için tarayıcı menüsünü kullan:\n• iPhone / iPad: Paylaş (⬆️) → "Ana Ekrana Ekle" — Safari, Chrome, Edge fark etmez, hepsinde olur.\n• Android: ⋮ → "Ana ekrana ekle / Uygulamayı yükle"\n• Bilgisayar / Akıllı tahta (Chrome/Edge): ⋮ → "Yükle" veya "Kısayol oluştur → Pencere olarak aç"'); return; }
   PWA_INSTALL.prompt(); try{ await PWA_INSTALL.userChoice; }catch(e){} PWA_INSTALL=null;
   const w=document.getElementById('pwa-install-wrap'); if(w) w.style.display='none';
 }
