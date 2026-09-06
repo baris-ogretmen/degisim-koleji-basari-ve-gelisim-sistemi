@@ -301,6 +301,10 @@ body.has-disc .set-fab{ bottom:calc(11.4rem + env(safe-area-inset-bottom)); }
 <div class="overlay" id="ayar-modal">
   <div class="modal">
     <h2><i class="fas fa-cog"></i> Ayarlar <button class="mclose" onclick="ayarKapat()">×</button></h2>
+    <div id="pwa-install-wrap" style="margin-bottom:.8rem;">
+      <button class="btn btn-emerald" onclick="pwaYukle()"><i class="fas fa-download mr-1"></i> Uygulamayı Bu Cihaza Yükle</button>
+      <div class="hint" style="margin-top:.3rem;">Telefon, tablet, bilgisayar ve akıllı tahtaya uygulama gibi kurulur. Otomatik istem çıkmazsa yönergeyi gösterir.</div>
+    </div>
     <label class="lbl">Gemini API Anahtarların (her satıra bir anahtar)</label>
     <textarea class="inp" id="ayar-keys" rows="3" placeholder="AIza..." style="resize:vertical; font-size:.82rem;"></textarea>
     <div class="hint">Ücretsiz al: <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. Birden çok anahtar girersen kota dolunca otomatik diğerine geçer. Anahtarlar sadece bu cihazda saklanır.</div>
@@ -414,6 +418,18 @@ body.has-disc .set-fab{ bottom:calc(11.4rem + env(safe-area-inset-bottom)); }
       </details>
     </div>
     <div id="merkez-panel" class="hidden"></div>
+  </div>
+</div>
+
+<!-- ============ ÖĞRETMENE ÖNERİ ============ -->
+<div class="overlay" id="oneri-modal">
+  <div class="modal" style="max-width:460px;">
+    <h2><i class="fas fa-paper-plane"></i> Öğretmene Öneri <button class="mclose" onclick="oneriKapat()">×</button></h2>
+    <p style="font-size:.84rem; font-weight:700; color:#334155; line-height:1.5; margin:.2rem 0 .6rem;">Sevgili veli, <span id="oneri-ad" style="font-weight:900;"></span> hakkında bir öneriniz varsa yazın (örn. "oğlum görsel örneklerle daha iyi anlıyor, futbolu çok sever, uzun metinlerde sıkılıyor"). Bu öneri <b>doğrudan Barış Öğretmen'e ulaşır</b>; o onayladığında çocuğunuzun içerikleri buna göre kişiselleşir.</p>
+    <textarea class="inp" id="oneri-metin" rows="5" placeholder="Çocuğum şöyle daha iyi anlıyor / şuna ilgisi var / şurada zorlanıyor..." style="resize:vertical;"></textarea>
+    <button class="btn btn-emerald" style="margin-top:.7rem;" onclick="oneriGonder()"><i class="fas fa-cloud-arrow-up mr-1"></i> Öneriyi Gönder</button>
+    <button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.5rem; background:#dcfce7; color:#166534; border-color:#86efac;" onclick="oneriWhatsapp()"><i class="fab fa-whatsapp mr-1"></i> WhatsApp'tan da gönder</button>
+    <div id="oneri-sonuc" style="font-size:.82rem; font-weight:800; margin-top:.6rem; text-align:center;"></div>
   </div>
 </div>
 
@@ -1089,7 +1105,9 @@ function renderPanel(){
     +'<p style="font-size:.82rem; font-weight:700; color:#475569; margin:0 0 .7rem; line-height:1.5;">'+(pv
       ? ilk+'\'in içerikleri artık <b>kişisel öğrenme profiline göre</b> uyarlanıyor: örnekler ilgi alanından, dil ve tempo ona göre. İstediğin an güncelleyebilirsin.'
       : '<b>'+ilk+' konuyu anlamayan öğrenci olmasın.</b> Onu birkaç cümleyle tanıt (ilgi alanı, nasıl daha iyi anlıyor, nerede zorlanıyor, veli notu) — tüm anlatım, quiz ve Hoca <b>ona göre</b> uyarlansın.')+'</p>'
-    +'<button class="btn '+(pv?'btn-ghost':'btn-primary')+'" style="'+(pv?'background:#e0e7ff;color:#4338ca;border-color:#c7d2fe;':'')+'" onclick="profilAc()"><i class="fas fa-'+(pv?'pen':'wand-magic-sparkles')+' mr-1"></i> '+(pv?'Profili Düzenle':'Öğrenme Profili Oluştur')+'</button></div>';
+    +'<button class="btn '+(pv?'btn-ghost':'btn-primary')+'" style="'+(pv?'background:#e0e7ff;color:#4338ca;border-color:#c7d2fe;':'')+'" onclick="profilAc()"><i class="fas fa-'+(pv?'pen':'wand-magic-sparkles')+' mr-1"></i> '+(pv?'Profili Düzenle':'Öğrenme Profili Oluştur')+'</button>'
+    +'<button class="btn btn-ghost" style="margin-top:.5rem; background:#ecfdf5; color:#065f46; border-color:#a7f3d0;" onclick="oneriAc()"><i class="fas fa-paper-plane mr-1"></i> Öğretmene Öneri Gönder</button>'
+    +'<div class="hint" style="margin-top:.4rem;">Veli buradan "çocuğum şöyle daha iyi anlıyor" gibi bir öneri yazarsa, öneri doğrudan Barış Öğretmen\'in paneline düşer; o onaylayınca sayfa otomatik kişiselleşir.</div></div>';
 
   // ⭐ GÜÇLÜ YÖNLERİN (Barış'ın felsefesi — önce güç)
   h+='<div class="card" style="border:2px solid #10b981;"><h3 style="color:#065f46;"><i class="fas fa-star"></i> Parlayan Yönlerin</h3>'
@@ -1950,6 +1968,21 @@ async function firestoreGet(coll,doc){
   Object.keys(f).forEach(k=>{ out[k]=f[k].stringValue!==undefined?f[k].stringValue:(f[k].integerValue!==undefined?f[k].integerValue:''); });
   return out;
 }
+async function firestoreList(coll, token){
+  const c=fbConfig(); if(!c) throw new Error('config yok');
+  const url='https://firestore.googleapis.com/v1/projects/'+c.projectId+'/databases/(default)/documents/'+coll+'?key='+encodeURIComponent(c.apiKey)+'&pageSize=200';
+  const headers={}; if(token) headers['Authorization']='Bearer '+token;
+  const r=await fetch(url,{headers}); if(r.status===404) return []; if(!r.ok) throw new Error('fs list '+r.status);
+  const j=await r.json(); const arr=[];
+  (j.documents||[]).forEach(d=>{ const o={ _id:(d.name||'').split('/').pop() }; const f=d.fields||{}; Object.keys(f).forEach(k=>{ o[k]=f[k].stringValue!==undefined?f[k].stringValue:(f[k].integerValue!==undefined?f[k].integerValue:''); }); arr.push(o); });
+  return arr;
+}
+async function firestoreSil(coll, doc, token){
+  const c=fbConfig(); if(!c) throw new Error('config yok');
+  const url='https://firestore.googleapis.com/v1/projects/'+c.projectId+'/databases/(default)/documents/'+coll+'/'+doc+'?key='+encodeURIComponent(c.apiKey);
+  const headers={}; if(token) headers['Authorization']='Bearer '+token;
+  const r=await fetch(url,{method:'DELETE',headers}); if(!r.ok && r.status!==404) throw new Error('fs del '+r.status); return true;
+}
 async function firestoreSet(coll,doc,obj,token){
   const c=fbConfig(); if(!c) throw new Error('config yok');
   const fields={}; Object.keys(obj).forEach(k=>{ fields[k]={stringValue:String(obj[k]==null?'':obj[k])}; });
@@ -2073,7 +2106,7 @@ function merkezPanelCiz(){
     +'<button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.4rem;" onclick="mzFbKaydet()">☁️ Config\'i Kaydet & Bağlan</button>'
     +'<div id="mz-fb-sonuc" style="font-size:.76rem; font-weight:800; margin-top:.4rem;"></div>'
     +'<div class="hint" style="margin-top:.6rem; border-top:1px dashed #e2e8f0; padding-top:.5rem;"><b>🔐 Güvenli kurulum (önerilen):</b><br>1) Firebase Console → <b>Authentication → Sign-in method → Email/Password</b>\'i aç, kendine bir hesap ekle (Gmail + şifre).<br>2) <b>Firestore Database</b> oluştur.<br>3) <b>Rules</b> sekmesine şu kuralı yapıştır (herkes okur, sadece giriş yapmış yönetici yazar):</div>'
-    +'<textarea class="inp" readonly rows="11" style="font-size:.62rem; font-family:monospace; background:#0b1220; color:#a7f3d0; margin-top:.4rem;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{db}/documents {\n    match /ayarlar/merkez {\n      allow read: if true;\n      allow write: if request.auth != null;\n    }\n    match /profiller/{id} {\n      allow get: if true;\n      allow list: if false;\n      allow write: if request.auth != null;\n    }\n  }\n}</textarea>'
+    +'<textarea class="inp" readonly rows="15" style="font-size:.6rem; font-family:monospace; background:#0b1220; color:#a7f3d0; margin-top:.4rem;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{db}/documents {\n    match /ayarlar/merkez {\n      allow read: if true;\n      allow write: if request.auth != null;\n    }\n    match /profiller/{id} {\n      allow get: if true;\n      allow list: if false;\n      allow write: if request.auth != null;\n    }\n    match /talepler/{id} {\n      allow create: if true;\n      allow read, update, delete: if request.auth != null;\n    }\n  }\n}</textarea>'
     +'<div class="hint" style="margin-top:.3rem;">Böylece ortak anahtarı yalnızca <b>senin Firebase hesabınla giriş yaptığında</b> güncelleyebilirsin; veli/öğrenci sadece okur. Config gizli değildir, güvenle koda konur (<code>GOMULU_FIREBASE</code>).</div>'
     +'</div></details>';
   // Şifre değiştir
@@ -2093,6 +2126,12 @@ function merkezPanelCiz(){
     +'<button class="btn btn-ghost btn-sm" style="width:100%; background:#eef2ff; color:#4338ca; border-color:#c7d2fe;" onclick="mpDerle()">🤖 AI ile Derle</button></div>'
     +'<div id="mp-sonuc" style="font-size:.8rem; font-weight:800; margin-top:.5rem; text-align:center;"></div>'
     +'<div id="mp-liste" style="margin-top:.7rem;"></div></div>';
+  // ---- Gelen Öneriler (veliden) ----
+  h+='<div style="border-top:2px dashed #e2e8f0; margin-top:1.1rem; padding-top:.9rem;">'
+    +'<div style="display:flex; align-items:center; gap:.5rem;"><div style="font-weight:900; font-size:.95rem; color:#065f46;"><i class="fas fa-inbox"></i> Gelen Öneriler (veliden)</div>'
+    +'<button class="btn btn-ghost btn-sm" style="width:auto; margin-left:auto; padding:.3rem .6rem;" onclick="taleplerListele()">🔄 Yenile</button></div>'
+    +'<div class="hint" style="margin:.3rem 0 .5rem;">Veliler çocuğun sayfasından öneri gönderir; buraya düşer. "Prompt\'a çevir & Onayla" dersen AI ham öneriyi düzgün bir öğrenme profiline çevirip o öğrenciye uygular.</div>'
+    +'<div id="talep-liste"><div style="font-size:.74rem; color:#94a3b8; font-weight:700; text-align:center; padding:.4rem;">Yenile\'ye bas.</div></div></div>';
   p.innerHTML=h;
   mzOrtakListele();
   mpListele();
@@ -2149,6 +2188,52 @@ async function mpSil(sl){
   try{ localStorage.removeItem('dk_okul_mprofil_'+sl); }catch(e){}
   if(fbReady()){ try{ await firestoreSet('profiller', sl, { profil:'', ozet:'', silindi:'1', guncelleme:new Date().toISOString() }, mpToken()); }catch(e){} }
   mpListele();
+}
+/* --- Gelen öneriler (veli → panel) --- */
+async function taleplerListele(){
+  const box=document.getElementById('talep-liste'); if(!box) return;
+  if(!fbReady()){ box.innerHTML='<div style="font-size:.74rem; color:#b45309; font-weight:700; text-align:center; padding:.4rem;">Bulut bağlı değil.</div>'; return; }
+  box.innerHTML='<div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div>';
+  try{
+    let arr=await firestoreList('talepler', mpToken());
+    arr=arr.filter(x=>x.durum!=='onaylandi' && !x.silindi && x.mesaj).sort((a,b)=>(b.tarih||'').localeCompare(a.tarih||''));
+    if(!arr.length){ box.innerHTML='<div style="font-size:.74rem; color:#94a3b8; font-weight:700; text-align:center; padding:.4rem;">Bekleyen öneri yok. 🎉</div>'; return; }
+    box.innerHTML=arr.map(t=>{ const kk=KADEMELER[t.kademe]||{emoji:'',ad:''}; const id=t._id;
+      return '<div style="background:#f8fafc; border-left:4px solid #10b981; border-radius:0 .7rem .7rem 0; padding:.6rem .7rem; margin-bottom:.55rem;">'
+        +'<div style="font-weight:900; font-size:.84rem; color:#065f46;">'+kk.emoji+' '+t.ad+' '+(t.soyad||'')+' <span style="color:#94a3b8; font-weight:700;">· '+(kk.ad||'')+(t.sube?(' '+t.sube):'')+'</span></div>'
+        +'<div style="font-size:.82rem; font-weight:600; color:#334155; margin:.3rem 0; line-height:1.5;">"'+t.mesaj+'"</div>'
+        +'<div class="row2"><button class="btn btn-emerald btn-sm" style="width:100%;" onclick="talepOnayla(\''+id+'\')">🤖 Prompt\'a Çevir & Onayla</button>'
+        +'<button class="btn btn-ghost btn-sm" style="width:100%; color:#dc2626;" onclick="talepSil(\''+id+'\')">🗑️ Sil</button></div>'
+        +'<div id="talep-sonuc-'+id+'" style="font-size:.76rem; font-weight:800; margin-top:.35rem;"></div></div>';
+    }).join('');
+  }catch(e){ const em=String(e.message); box.innerHTML='<div style="font-size:.74rem; color:#b45309; font-weight:700; text-align:center; padding:.4rem;">'+(/403|PERMISSION/i.test(em)?'Önerileri görmek için Gmail ile giriş yap ve Firestore kurallarına /talepler iznini ekle.':'Yüklenemedi: '+em.slice(0,50))+'</div>'; }
+}
+async function talepOnayla(id){
+  const s=document.getElementById('talep-sonuc-'+id); if(s){ s.style.color='#64748b'; s.innerText='İşleniyor...'; }
+  let t; try{ t=await firestoreGet('talepler', id); }catch(e){}
+  if(!t||!t.mesaj){ if(s){ s.style.color='#dc2626'; s.innerText='Öneri okunamadı.'; } return; }
+  const sl=profilSlug(t.ad,t.soyad,t.kademe);
+  let ozet=t.mesaj;
+  // AI ile düzgün prompta çevir (anahtar varsa)
+  if(hasKey()){
+    try{
+      const sys='Sen bir eğitim koçusun. Velinin öğrencisi hakkında yazdığı ham öneriyi, yapay zekânın o öğrenciye anlatımı uyarlaması için KISA NET bir öğrenme-özeti\'ne çevir (2-4 cümle): ilgi alanları, nasıl daha iyi anlıyor, dikkat/tempo, motivasyon, zorlandığı nokta. Uydurma; düz metin. Türkçe.';
+      const r=await callText('Öğrenci: '+t.ad+' '+(t.soyad||'')+' ('+(KADEMELER[t.kademe]||{}).ad+'). Veli önerisi: "'+t.mesaj+'"\n\nKısa öğrenme-özeti yaz.', sys);
+      ozet=duzMetin(r).trim()||t.mesaj;
+    }catch(e){}
+  }
+  try{
+    await merkeziProfilYaz(sl, { ad:t.ad, soyad:t.soyad||'', kademe:t.kademe, profil:t.mesaj, ozet:ozet, guncelleme:new Date().toISOString() }, mpToken());
+    merkeziProfilIndexEkle({ slug:sl, ad:t.ad, soyad:t.soyad||'', kademe:t.kademe });
+    await firestoreSet('talepler', id, { durum:'onaylandi', islenme:new Date().toISOString() }, mpToken());
+    if(s){ s.style.color='#059669'; s.innerHTML='✅ Onaylandı ve '+t.ad+'\'in profili olarak yayınlandı.'; }
+    mpListele(); setTimeout(taleplerListele,1200);
+  }catch(e){ if(s){ s.style.color='#b45309'; s.innerText='Kaydedilemedi: '+String(e.message).slice(0,50); } }
+}
+async function talepSil(id){
+  if(!confirm('Bu öneri silinsin mi?')) return;
+  try{ await firestoreSil('talepler', id, mpToken()); }catch(e){ try{ await firestoreSet('talepler', id, {silindi:'1',durum:'silindi'}, mpToken()); }catch(_){} }
+  taleplerListele();
 }
 function mzOrtakListele(){
   const box=document.getElementById('mz-ortak'); if(!box) return;
@@ -2260,7 +2345,27 @@ function initPWA(){
     const url=URL.createObjectURL(blob);
     let link=document.querySelector('link[rel="manifest"]'); if(!link){ link=document.createElement('link'); link.rel='manifest'; document.head.appendChild(link); }
     link.href=url;
+    // --- Tüm cihazlar: tarayıcı sekmesi / Android ana ekran ikonu (favicon) ---
+    function pwaLink(rel,href,attrs){ const l=document.createElement('link'); l.rel=rel; l.href=href; if(attrs) Object.keys(attrs).forEach(k=>l.setAttribute(k,attrs[k])); document.head.appendChild(l); }
+    pwaLink('icon', ICON_192, {type:'image/png', sizes:'192x192'});
+    pwaLink('icon', ICON_512, {type:'image/png', sizes:'512x512'});
+    pwaLink('shortcut icon', ICON_192, {type:'image/png'});
+    // --- Windows / akıllı tahta (Edge, IE tabanlı tahtalar) kutucuk ---
+    function pwaMeta(name,content){ let m=document.querySelector('meta[name="'+name+'"]'); if(!m){ m=document.createElement('meta'); m.setAttribute('name',name); document.head.appendChild(m); } m.setAttribute('content',content); }
+    pwaMeta('msapplication-TileColor', APP_TEMA);
+    pwaMeta('msapplication-TileImage', ICON_192);
+    pwaMeta('msapplication-config','none');
+    // --- Tek dosya: harici servis çalışanı YOK. İkon/ana ekrana ekleme tüm cihazlarda manifest+meta ile çalışır. ---
   }catch(e){}
+}
+/* Bilgisayar/Android Chrome-Edge "Uygulamayı Yükle" istemi */
+let PWA_INSTALL=null;
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); PWA_INSTALL=e; const w=document.getElementById('pwa-install-wrap'); if(w) w.style.display='block'; });
+window.addEventListener('appinstalled', function(){ PWA_INSTALL=null; const w=document.getElementById('pwa-install-wrap'); if(w) w.style.display='none'; });
+async function pwaYukle(){
+  if(!PWA_INSTALL){ alert('Bu cihazda tek dokunuşla kurmak için tarayıcı menüsünü kullan:\n• iPhone (Safari): Paylaş → "Ana Ekrana Ekle"\n• Android (Chrome): ⋮ → "Ana ekrana ekle / Uygulamayı yükle"\n• Bilgisayar/Akıllı tahta (Chrome/Edge): ⋮ → "Yükle" veya "Kısayol oluştur → Pencere olarak aç"'); return; }
+  PWA_INSTALL.prompt(); try{ await PWA_INSTALL.userChoice; }catch(e){} PWA_INSTALL=null;
+  const w=document.getElementById('pwa-install-wrap'); if(w) w.style.display='none';
 }
 function keyFabGoster(){ const f=document.getElementById('key-fab'); if(f) f.classList.remove('hidden'); }
 
@@ -2356,6 +2461,28 @@ async function profilDerle(){
 }
 function profilTemizle(){ if(!AKTIF||!confirm('Bu öğrencinin öğrenme profili silinsin mi?')) return; AKTIF.ogrenmeProfili={ serbest:'', ozet:'', tempo:'', guncelleme:'' }; PROFIL_TEMPO=''; profKaydet(); profilAc(); if(document.getElementById('view-panel').classList.contains('active')) renderPanel(); }
 
+/* ==================== VELİ ÖNERİSİ (öğretmene otomatik iletir) ==================== */
+function oneriAc(){ if(!AKTIF) return; document.getElementById('oneri-ad').innerText=tamAd(); document.getElementById('oneri-metin').value=''; document.getElementById('oneri-sonuc').innerHTML=''; document.getElementById('oneri-modal').classList.add('open'); }
+function oneriKapat(){ document.getElementById('oneri-modal').classList.remove('open'); }
+function oneriWhatsapp(){
+  const metin=(document.getElementById('oneri-metin').value||'').trim();
+  const msg='Barış Hocam merhaba 👋 '+tamAd()+' ('+K().ad+(AKTIF.sube?(' '+AKTIF.sube):'')+') için öğrenme önerim: '+(metin||'...');
+  acLink('https://wa.me/'+WHATSAPP_NO+'?text='+encodeURIComponent(msg));
+}
+async function oneriGonder(){
+  if(!AKTIF) return;
+  const metin=(document.getElementById('oneri-metin').value||'').trim(); const s=document.getElementById('oneri-sonuc');
+  if(metin.length<5){ s.style.color='#dc2626'; s.innerText='Önerini birkaç kelimeyle yaz.'; return; }
+  if(!fbReady()){ s.style.color='#b45309'; s.innerHTML='Bulut bağlı değil; şimdilik <b>WhatsApp\'tan</b> gönderebilirsin.'; return; }
+  s.style.color='#64748b'; s.innerText='Gönderiliyor...';
+  const id=profilSlug(AKTIF.ad,AKTIF.soyad,AKTIF.kademe)+'_'+Date.now();
+  try{
+    await firestoreSet('talepler', id, { ad:AKTIF.ad, soyad:AKTIF.soyad||'', kademe:AKTIF.kademe, sube:AKTIF.sube||'', mesaj:metin, tarih:new Date().toISOString(), durum:'bekliyor' });
+    s.style.color='#059669'; s.innerHTML='✅ Öneriniz Barış Öğretmen\'e iletildi. Onayladığında sayfa otomatik kişiselleşecek. Teşekkürler! 🙏';
+    document.getElementById('oneri-metin').value='';
+  }catch(e){ s.style.color='#b45309'; s.innerHTML='Gönderilemedi. <b>WhatsApp\'tan</b> gönderebilirsin. ('+String(e.message).slice(0,50)+')'; }
+}
+
 /* ==================== ZİRVE YÜZEN DÜĞMELER (sürükle / gizle / geri getir) ==================== */
 function zPosKey(k){ return 'dk_okul_pos_'+k; }
 function zGizKey(k){ return 'dk_okul_giz_'+k; }
@@ -2407,6 +2534,7 @@ window.onload=function(){
   document.getElementById('anahtar-modal').addEventListener('click', e=>{ if(e.target.id==='anahtar-modal') anahtarMerkeziKapat(); });
   document.getElementById('merkez-modal').addEventListener('click', e=>{ if(e.target.id==='merkez-modal') merkeziYonetimKapat(); });
   document.getElementById('profil-modal').addEventListener('click', e=>{ if(e.target.id==='profil-modal') profilKapat(); });
+  document.getElementById('oneri-modal').addEventListener('click', e=>{ if(e.target.id==='oneri-modal') oneriKapat(); });
   renderStuList();
   try{ ZIRVE_ekranBaslat(); }catch(e){}
   try{ ZIRVE_fabBaslat(); }catch(e){}
