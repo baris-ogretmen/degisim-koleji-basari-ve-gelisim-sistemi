@@ -200,6 +200,7 @@ nav::-webkit-scrollbar{ display:none; }
 .ai-body{ padding:1rem; }
 .typing{ display:flex; gap:.35rem; padding:.5rem; } .typing span{ width:.6rem; height:.6rem; border-radius:50%; background:#94a3b8; animation:tp 1s infinite; } .typing span:nth-child(2){ animation-delay:.15s; } .typing span:nth-child(3){ animation-delay:.3s; }
 @keyframes tp{ 0%,60%,100%{ opacity:.3; transform:translateY(0);} 30%{ opacity:1; transform:translateY(-4px);} }
+@keyframes bob{ 0%,100%{ transform:translateY(0) rotate(-3deg);} 50%{ transform:translateY(-8px) rotate(3deg);} }
 
 /* Modal */
 .overlay{ display:none; position:fixed; inset:0; background:rgba(11,30,63,.6); backdrop-filter:blur(4px); z-index:100; padding:1rem; align-items:flex-start; justify-content:center; overflow-y:auto; }
@@ -797,10 +798,48 @@ function duzMetin(html){
   t=t.replace(/^#{1,6}\s*/gm,'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*(.+?)\*/g,'$1').replace(/`/g,'');
   return t.replace(/\n{3,}/g,'\n\n').trim();
 }
-function aiToolbar(){ return '<div class="ai-tools"><button onclick="aiKopya(this)">📋 Kopyala</button><button onclick="pdfYap(this)">📄 PDF</button><button onclick="aiPaylas(this)">📤 Paylaş</button><button onclick="aiSesli(this)">🔊 Dinle</button></div>'; }
+function aiToolbar(){ return '<div class="ai-tools"><button onclick="aiKopya(this)">📋 Kopyala</button><button onclick="pdfYap(this)">📄 PDF</button><button onclick="aiCevir(this)">🌐 Çevir</button><button onclick="aiSesli(this)">🔊 Dinle</button><button onclick="aiPaylas(this)">📤 Paylaş</button></div>'; }
 function aiKopya(btn){ const t=duzMetin(btn.closest('.ai-wrap').querySelector('.ai-body').innerHTML); navigator.clipboard.writeText(t).then(()=>{ btn.textContent='✓ Kopyalandı'; setTimeout(()=>btn.textContent='📋 Kopyala',1500); }); }
 function aiPaylas(btn){ const t=duzMetin(btn.closest('.ai-wrap').querySelector('.ai-body').innerHTML); if(navigator.share){ navigator.share({title:'Değişim Koleji', text:t}).catch(()=>{}); } else aiKopya(btn); }
-function aiSesli(btn){ const t=duzMetin(btn.closest('.ai-wrap').querySelector('.ai-body').innerHTML); try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='tr-TR'; speechSynthesis.speak(u); }catch(e){} }
+function aiSesli(btn){
+  try{
+    if(speechSynthesis.speaking || speechSynthesis.pending){ speechSynthesis.cancel(); btn.textContent='🔊 Dinle'; return; }
+    const t=duzMetin(btn.closest('.ai-wrap').querySelector('.ai-body').innerHTML);
+    speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='tr-TR';
+    u.onend=function(){ btn.textContent='🔊 Dinle'; }; u.onerror=function(){ btn.textContent='🔊 Dinle'; };
+    btn.textContent='⏹️ Durdur'; speechSynthesis.speak(u);
+  }catch(e){}
+}
+/* ---- Çeviri (Kürtçe/Kurmancî dahil) ---- */
+const CEVIRI_DILLER=[['Türkçe','Türkçe'],['Kürtçe (Kurmancî)','Kürtçe (Kurmancî)'],['İngilizce','İngilizce'],['Arapça','Arapça'],['Almanca','Almanca']];
+function aiCevir(btn){
+  const wrap=btn.closest('.ai-wrap'); const body=wrap.querySelector('.ai-body');
+  let host=body.querySelector('.ceviri-host'); if(host){ host.remove(); return; }
+  host=document.createElement('div'); host.className='ceviri-host';
+  host.innerHTML='<div style="margin-top:.8rem; border-top:1px dashed #e2e8f0; padding-top:.7rem;"><div style="display:flex; align-items:center; gap:.4rem; flex-wrap:wrap;"><span style="font-weight:900; font-size:.82rem; color:#4338ca;">🌐 Çevir:</span>'
+    + CEVIRI_DILLER.map(d=>'<button class="stu-chip" style="margin:0;" onclick="aiCeviriYap(this,'+jsq(d[1])+')">'+d[0]+'</button>').join('')
+    + '<button class="stu-chip" style="margin:0; margin-left:auto; background:#fee2e2; color:#b91c1c; border-color:#fca5a5;" onclick="this.closest(&quot;.ceviri-host&quot;).remove()">✕ Kapat</button></div><div class="ceviri-cikti"></div></div>';
+  body.appendChild(host);
+}
+async function aiCeviriYap(btn, dilAd){
+  if(!requireKey()) return;
+  const wrap=btn.closest('.ai-wrap'); const host=btn.closest('.ceviri-host'); const cikti=host.querySelector('.ceviri-cikti');
+  const src=wrap.querySelector('.ai-body .content-html')||wrap.querySelector('.ai-body');
+  const kaynak=src.innerHTML;
+  cikti.innerHTML=yukleniyorHTML('“'+dilAd+'” diline çevriliyor…');
+  try{
+    const t=await callText('Aşağıdaki HTML eğitim içeriğini '+dilAd+' diline çevir. HTML etiketlerini (<h4>,<ul>,<li>,<b>,<table> vb.) AYNEN koru; yalnızca görünen metni çevir. Anlamı koru, doğal ve akıcı olsun. SADECE çevrilmiş HTML\'i döndür, açıklama ekleme.\n\n--- İÇERİK ---\n'+kaynak, 'Sen çok yetenekli bir çevirmensin. Kürtçe istenirse Kurmancî lehçesiyle çevir. Markdown/LaTeX kullanma.');
+    let html=(t||'').replace(/```html/gi,'').replace(/```/g,'').trim();
+    cikti.innerHTML='<div style="margin-top:.6rem; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:.9rem; padding:.8rem;"><div style="display:flex; align-items:center; gap:.4rem; margin-bottom:.4rem;"><span style="font-weight:900; font-size:.82rem; color:#6d28d9;">🌐 '+dilAd+'</span><button class="stu-chip" style="margin:0; margin-left:auto; padding:.2rem .5rem; background:#ede9fe; color:#6d28d9;" onclick="this.closest(&quot;.ceviri-cikti&quot;).innerHTML=&quot;&quot;">✕ Kapat</button></div><div class="content-html">'+html+'</div></div>';
+  }catch(e){ cikti.innerHTML='<div class="warn-box" style="margin:.5rem 0 0;">'+hataCevir(e)+'</div>'; }
+}
+/* ---- Robot yükleme göstergesi (çocuğa haber ver) ---- */
+function yukleniyorHTML(msg){
+  return '<div style="text-align:center; padding:1.1rem .5rem;"><div style="font-size:2.2rem; animation:bob 1.2s ease-in-out infinite;">🤖</div>'
+    +'<div style="font-weight:900; color:#4338ca; margin:.3rem 0 .1rem; font-size:.95rem;">'+(msg||'Yapay zekâ senin için hazırlıyor…')+'</div>'
+    +'<div class="typing" style="justify-content:center; margin:.3rem 0;"><span></span><span></span><span></span></div>'
+    +'<div style="font-size:.76rem; font-weight:800; color:#94a3b8;">Neredeyse bitti, birazdan hazır… ✨</div></div>';
+}
 function pdfYap(btn){
   const wrap=btn.closest('.ai-wrap'); const body=wrap?wrap.querySelector('.ai-body'):null; if(!body) return;
   const icerik=body.innerHTML;
@@ -816,7 +855,7 @@ function pdfYap(btn){
   window.addEventListener('afterprint',bitir);
   setTimeout(function(){ try{ window.print(); }catch(e){} setTimeout(bitir,3000); }, 120);
 }
-function renderAI(box, innerHTML){ box.innerHTML='<div class="ai-wrap">'+aiToolbar()+'<div class="ai-body">'+innerHTML+'</div></div>'; discGoster(); }
+function renderAI(box, innerHTML){ innerHTML=String(innerHTML||'').replace(/```html/gi,'').replace(/```/g,''); box.innerHTML='<div class="ai-wrap">'+aiToolbar()+'<div class="ai-body">'+innerHTML+'</div></div>'; discGoster(); }
 const RICH='\n\nBİÇİM: <b> kalın, <i> italik, <h4> başlık, <ul><li> madde, <table> tablo kullan. Renkli vurgular için <span style="background:#fef08a;padding:0 3px">...</span> kullanabilirsin. Örnekler ver, benzetme kur, akılda kalıcı şifreler üret. Markdown (#,*) ve LaTeX ($,\\frac) ASLA kullanma. Türkçe yaz.';
 function jsq(s){ return "'"+String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\r?\n/g,' ')+"'"; }
 
@@ -1312,7 +1351,7 @@ function seviyeMetni(){ const kk=K(); return kk.ad+' ('+ (kk.tip==='gelisim'?'ok
 async function anlatimUret(dk){
   if(!requireKey()) return;
   const d=DERS_GET(dk), konu=document.getElementById('konu-'+dk).value; const box=document.getElementById('calis-cikti-'+dk);
-  box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  box.innerHTML=yukleniyorHTML();
   const ilk=ilkAd();
   const sys='Sen Değişim Koleji\'nin sevilen, enerjik "Hoca"sısın. '+seviyeMetni()+' düzeyinde, '+d.ad+' dersi anlatırsın. Sıcak, bol metaforlu, günlük hayattan örnekli, yaşa uygun ve sade. Uydurma, müfredata sadık kal. Türkçe.';
   const yonerge = CALIS_TRACK==='guc'
@@ -1330,7 +1369,7 @@ async function anlatimUret(dk){
 async function etkinlikUret(dk){
   if(!requireKey()) return;
   const d=DERS_GET(dk), konu=document.getElementById('konu-'+dk).value; const box=document.getElementById('calis-cikti-'+dk);
-  box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  box.innerHTML=yukleniyorHTML();
   const ilk=ilkAd(); const kk=K();
   const sys='Sen okul öncesi ve özel eğitim alanında uzman bir öğretmensin ('+kk.ad+'). Velilere, evde çocuklarıyla yapabilecekleri, malzemesi basit, güvenli, oyunlaştırılmış GELİŞİM ETKİNLİKLERİ hazırlarsın. Sıcak, net, uygulanabilir. Uydurma, gelişim ilkelerine sadık kal. Türkçe.';
   const yonerge = CALIS_TRACK==='guc'
@@ -1350,7 +1389,7 @@ function testBaslat(dk, zorlukZorla, konuZorla){
   const d=DERS_GET(dk); const konu=konuZorla||(document.getElementById('konu-'+dk)?document.getElementById('konu-'+dk).value:KONU(dk)[0]);
   gorunum('quiz');
   const v=document.getElementById('view-quiz');
-  v.innerHTML='<div class="card" style="text-align:center;"><div class="big-emoji">'+d.emoji+'</div><h3 style="justify-content:center;">'+d.ad+' · '+konu+'</h3><p style="font-weight:700; color:#64748b;">'+(CALIS_TRACK==='guc'?'Seni zorlayacak zenginleştirme soruları':'Pekiştirme soruları')+' hazırlanıyor...</p><div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div></div>';
+  v.innerHTML='<div class="card" style="text-align:center;"><div class="big-emoji">'+d.emoji+'</div><h3 style="justify-content:center;">'+d.ad+' · '+konu+'</h3><p style="font-weight:700; color:#64748b;">'+(CALIS_TRACK==='guc'?'Seni zorlayacak zenginleştirme soruları':'Pekiştirme soruları')+' hazırlanıyor...</p><div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div><div style="font-size:.8rem;font-weight:800;color:#4338ca;margin-top:.4rem;">🤖 Yapay zekâ senin için hazırlıyor… neredeyse bitti ✨</div></div>';
   quizUret(dk, konu, zorlukZorla);
 }
 async function quizUret(dk, konu, zorlukZorla){
@@ -1393,7 +1432,7 @@ function quizCevap(i){
 async function sikAnaliz(idx){
   if(!requireKey()) return;
   const q=QUIZ.list[idx], dk=q.ders||QUIZ.ders; const box=document.getElementById('analiz-box');
-  box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  box.innerHTML=yukleniyorHTML();
   const siklar=q.secenekler.map((s,i)=>String.fromCharCode(65+i)+') '+s).join('\n');
   const sys='Sen Değişim Koleji\'nin efsane "Hoca"sısın. Şıkları tek tek, sıcak ve yaşa uygun bir dille analiz edersin; her doğru/yanlışı bir GÜNLÜK HAYAT METAFORUYLA açıklarsın. '+seviyeMetni()+'. Uydurma.';
   try{
@@ -1404,7 +1443,7 @@ async function sikAnaliz(idx){
 async function ozelDers(idx){
   if(!requireKey()) return;
   const q=QUIZ.list[idx], dk=q.ders||QUIZ.ders, konu=q.konu||QUIZ.konu; const box=document.getElementById('analiz-box');
-  box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  box.innerHTML=yukleniyorHTML();
   const ilk=ilkAd();
   const sys='Sen '+ilk+'\'in çok sevdiği, enerjik "Hoca"sısın. Sıcak hitaplar, bol metafor ve günlük örneklerle, sıfırdan, en basit ve yaşa uygun dille anlatırsın. '+seviyeMetni()+'. Uydurma.';
   try{
@@ -1462,7 +1501,7 @@ function bilsemBaslat(alanK){
   if(!requireKey()) return;
   const a=BILSEM_ALAN.find(x=>x.k===alanK); const kk=K();
   gorunum('quiz'); const v=document.getElementById('view-quiz');
-  v.innerHTML='<div class="card" style="text-align:center;"><div class="big-emoji">'+a.emoji+'</div><h3 style="justify-content:center;">BİLSEM · '+a.ad+'</h3><p style="font-weight:700;color:#64748b;">'+kk.ad+' düzeyine uygun prova soruları hazırlanıyor...</p><div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div></div>';
+  v.innerHTML='<div class="card" style="text-align:center;"><div class="big-emoji">'+a.emoji+'</div><h3 style="justify-content:center;">BİLSEM · '+a.ad+'</h3><p style="font-weight:700;color:#64748b;">'+kk.ad+' düzeyine uygun prova soruları hazırlanıyor...</p><div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div><div style="font-size:.8rem;font-weight:800;color:#4338ca;margin-top:.4rem;">🤖 Yapay zekâ senin için hazırlıyor… neredeyse bitti ✨</div></div>';
   bilsemUret(alanK);
 }
 async function bilsemUret(alanK){
@@ -1536,7 +1575,7 @@ function burslulukKaydet(){
 function denemeSil(i){ if(!confirm('Bu deneme silinsin mi?')) return; AKTIF.denemeler.splice(i,1); profKaydet(); renderBursluluk(); }
 async function denemeYorum(i){
   if(!requireKey()) return;
-  const d=AKTIF.denemeler[i]; const box=document.getElementById('deneme-yorum'); box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  const d=AKTIF.denemeler[i]; const box=document.getElementById('deneme-yorum'); box.innerHTML=yukleniyorHTML();
   const dersler=burslulukDersleri();
   const dagilim=dersler.map(x=>x.ad+': '+(d.dogrular[x.key]||0)+'D/'+(d.yanlislar[x.key]||0)+'Y').join(', ');
   const zayif=dersler.filter(x=>(d.oranlar[x.key]||0)<0.5).map(x=>x.ad);
@@ -1604,7 +1643,7 @@ function gelisimGuncelle(){
 }
 async function uzmanRaporUret(){
   if(!requireKey()) return;
-  const box=document.getElementById('uzman-rapor'); box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  const box=document.getElementById('uzman-rapor'); box.innerHTML=yukleniyorHTML();
   const ilk=ilkAd(); const kk=K();
   const rad=radarItems(); const onceki=oncekiBeceri();
   const beceriMetni=rad.map(x=>x.label+': %'+x.value).join(', ');
@@ -1751,7 +1790,7 @@ function gozlemSil(i){ AKTIF.hatalar.__gozlem.splice(i,1); profKaydet(); renderG
 async function kisiselTestBaslat(){
   if(!requireKey()) return;
   gorunum('quiz'); const v=document.getElementById('view-quiz');
-  v.innerHTML='<div class="card" style="text-align:center;"><div class="big-emoji">🎯</div><h3 style="justify-content:center;">Sana Özel Deneme</h3><p style="font-weight:700; color:#64748b;">Hatalarından ve zayıf derslerinden yeni sorular hazırlanıyor...</p><div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div></div>';
+  v.innerHTML='<div class="card" style="text-align:center;"><div class="big-emoji">🎯</div><h3 style="justify-content:center;">Sana Özel Deneme</h3><p style="font-weight:700; color:#64748b;">Hatalarından ve zayıf derslerinden yeni sorular hazırlanıyor...</p><div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div><div style="font-size:.8rem;font-weight:800;color:#4338ca;margin-top:.4rem;">🤖 Yapay zekâ senin için hazırlıyor… neredeyse bitti ✨</div></div>';
   const hedefKonular={};
   Object.keys(AKTIF.hatalar).forEach(dk=>{ if(dk==='__gozlem') return; AKTIF.hatalar[dk].forEach(x=>{ (hedefKonular[dk]=hedefKonular[dk]||new Set()).add(x.konu||''); }); });
   if(!Object.keys(hedefKonular).length){ guclerSirali().slice().reverse().slice(0,3).forEach(x=>{ hedefKonular[x.d.key]=new Set((KONU(x.d.key)||[]).slice(0,2)); }); }
@@ -1879,7 +1918,7 @@ function notSil(i){ notlar().splice(i,1); profKaydet(); renderNotlar(); }
 async function kavramKartiUret(){
   if(!requireKey()) return;
   const dk=document.getElementById('not-ders').value, konu=document.getElementById('not-konu').value;
-  const box=document.getElementById('not-ai-cikti'); box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  const box=document.getElementById('not-ai-cikti'); box.innerHTML=yukleniyorHTML();
   const sys='Sen '+seviyeMetni()+' düzeyinde kavram kartı hazırlayan öğretmensin. Her kavram için kısa net tanım, konuyu simgeleyen TEK emoji ve akılda kalıcı bir şifre ver. YAŞA UYGUN dil. Çıktın SADECE JSON.';
   try{
     const arr=await callJSON(DERS_GET(dk).ad+' "'+konu+'" konusunun EN ÖNEMLİ 5 kavramı için kart üret. Format: [{"kavram":"...","tanim":"kısa tanım","sembol":"tek emoji","sifre":"çağrışım"}].', sys);
@@ -1892,7 +1931,7 @@ let FLASH={ list:[], i:0, acik:false, ders:'', konu:'' };
 async function flashcardUret(){
   if(!requireKey()) return;
   const dk=document.getElementById('not-ders').value, konu=document.getElementById('not-konu').value;
-  const box=document.getElementById('not-ai-cikti'); box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  const box=document.getElementById('not-ai-cikti'); box.innerHTML=yukleniyorHTML();
   const sys='Sen '+seviyeMetni()+' düzeyinde flashcard hazırlayan öğretmensin. Ön yüz kısa soru/kavram, arka yüz kısa cevap. YAŞA UYGUN. Çıktın SADECE JSON.';
   try{
     const arr=await callJSON(DERS_GET(dk).ad+' "'+konu+'" konusundan 6 flashcard üret. Format: [{"on":"ön yüz","arka":"arka yüz"}].', sys);
@@ -2250,7 +2289,7 @@ async function mpSil(sl){
 async function taleplerListele(){
   const box=document.getElementById('talep-liste'); if(!box) return;
   if(!fbReady()){ box.innerHTML='<div style="font-size:.74rem; color:#b45309; font-weight:700; text-align:center; padding:.4rem;">Bulut bağlı değil.</div>'; return; }
-  box.innerHTML='<div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div>';
+  box.innerHTML='<div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div><div style="font-size:.8rem;font-weight:800;color:#4338ca;margin-top:.4rem;">🤖 Yapay zekâ senin için hazırlıyor… neredeyse bitti ✨</div>';
   try{
     let arr=await firestoreList('talepler', mpToken());
     arr=arr.filter(x=>x.durum!=='onaylandi' && !x.silindi && x.mesaj).sort((a,b)=>(b.tarih||'').localeCompare(a.tarih||''));
@@ -2506,7 +2545,7 @@ async function profilDerle(){
   if(!requireKey()) return;
   const serbest=(document.getElementById('profil-serbest').value||'').trim();
   if(serbest.length<10){ const s=document.getElementById('profil-sonuc'); s.style.color='#b45309'; s.innerText='Önce öğrenciyi birkaç cümleyle tanıt.'; return; }
-  const box=document.getElementById('profil-ozet-box'); box.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+  const box=document.getElementById('profil-ozet-box'); box.innerHTML=yukleniyorHTML();
   const sys='Sen bir eğitim koçusun. Öğretmenin/velinin bir öğrenci hakkında yazdığı serbest notu al ve YAPAY ZEKÂNIN o öğrenciye anlatım uyarlaması için kullanacağı KISA, NET bir "öğrenme profili" özeti çıkar. 2-4 cümle. İçinde: ilgi alanları (örnek için), nasıl daha iyi anlıyor, dikkat/tempo, motivasyon, zorlandığı nokta. Uydurma; sadece verilenden çıkar, eksikse atla. Düz metin, madde işareti yok. Türkçe.';
   try{
     const t=await callText('Öğrenci: '+ilkAd()+' ('+K().ad+'). Öğretmen/veli notu: "'+serbest+'"\n\nBundan yapay zekânın kullanacağı kısa öğrenme profili özetini yaz.', sys);
