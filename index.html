@@ -761,6 +761,7 @@ async function callText(prompt, system){
   await ensureModels(); await rlBekle();
   const sysF = (system||'') + ogrenmeProfilSys();
   const modeller=modelSirasi(); let sonHata=null, hepsiKota=(RING.keys.length>0);
+  if(RING.keys.length>1){ RING.i=Math.floor(Math.random()*RING.keys.length); } // havuzdan rastgele → kota dağıtımı
   for(let k=0;k<RING.keys.length;k++){
     const key=RING.keys[(RING.i+k)%RING.keys.length]; let buAnahtarKota=false;
     for(const m of modeller){
@@ -2202,7 +2203,7 @@ function merkezPanelCiz(){
     +'<button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.4rem;" onclick="mzFbKaydet()">☁️ Config\'i Kaydet & Bağlan</button>'
     +'<div id="mz-fb-sonuc" style="font-size:.76rem; font-weight:800; margin-top:.4rem;"></div>'
     +'<div class="hint" style="margin-top:.6rem; border-top:1px dashed #e2e8f0; padding-top:.5rem;"><b>🔐 Güvenli kurulum (önerilen):</b><br>1) Firebase Console → <b>Authentication → Sign-in method → Email/Password</b>\'i aç, kendine bir hesap ekle (Gmail + şifre).<br>2) <b>Firestore Database</b> oluştur.<br>3) <b>Rules</b> sekmesine şu kuralı yapıştır (herkes okur, sadece giriş yapmış yönetici yazar):</div>'
-    +'<textarea class="inp" readonly rows="15" style="font-size:.6rem; font-family:monospace; background:#0b1220; color:#a7f3d0; margin-top:.4rem;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{db}/documents {\n    match /ayarlar/merkez {\n      allow read: if true;\n      allow write: if request.auth != null;\n    }\n    match /profiller/{id} {\n      allow get: if true;\n      allow list: if false;\n      allow write: if request.auth != null;\n    }\n    match /talepler/{id} {\n      allow create: if true;\n      allow read, update, delete: if request.auth != null;\n    }\n  }\n}</textarea>'
+    +'<textarea class="inp" readonly rows="16" style="font-size:.6rem; font-family:monospace; background:#0b1220; color:#a7f3d0; margin-top:.4rem;">rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{db}/documents {\n    match /ayarlar/merkez {\n      allow read, create, update: if true;\n      allow delete: if request.auth != null;\n    }\n    match /profiller/{id} {\n      allow get, create, update: if true;\n      allow list: if false;\n      allow delete: if request.auth != null;\n    }\n    match /talepler/{id} {\n      allow read, create, update: if true;\n      allow delete: if request.auth != null;\n    }\n  }\n}</textarea>'
     +'<div class="hint" style="margin-top:.3rem;">Böylece ortak anahtarı yalnızca <b>senin Firebase hesabınla giriş yaptığında</b> güncelleyebilirsin; veli/öğrenci sadece okur. Config gizli değildir, güvenle koda konur (<code>GOMULU_FIREBASE</code>).</div>'
     +'</div></details>';
   // Şifre değiştir
