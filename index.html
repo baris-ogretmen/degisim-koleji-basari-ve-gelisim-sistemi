@@ -662,7 +662,7 @@ const BILSEM_ALAN = [
 
 /* ==================== DURUM ==================== */
 let AKTIF = null;
-let SETTINGS = { keys:[], model:'gemini-2.5-flash' };
+let SETTINGS = { keys:[], model:'gemini-2.5-flash-lite' };
 let RING = { keys:[], i:0, cool:{} };
 let RL = { rpm:8, son:[] };
 let MODELLER = [];
@@ -682,7 +682,8 @@ function ilkAd(p){ p=p||AKTIF; return (p.ad||'').split(' ')[0]; }
 /* ==================== AYARLAR & ANAHTAR HALKASI ==================== */
 function loadSettings(){
   try{ const r=localStorage.getItem('dk_okul_settings'); if(r) SETTINGS=Object.assign(SETTINGS,JSON.parse(r)); }catch(e){}
-  if(/^gemini-(2\.0|1\.5)/.test(SETTINGS.model||'')) SETTINGS.model='gemini-2.5-flash';
+  if(/^gemini-(2\.0|1\.5)/.test(SETTINGS.model||'')) SETTINGS.model='gemini-2.5-flash-lite';
+  if(!SETTINGS.model) SETTINGS.model='gemini-2.5-flash-lite';
 }
 function saveSettings(){ try{ localStorage.setItem('dk_okul_settings',JSON.stringify(SETTINGS)); }catch(e){} }
 function ringLoad(){
@@ -717,10 +718,10 @@ async function ensureModels(){ if(MODELLER.length || !hasKey()) return;
 async function populateModels(){ await ensureModels(); const dl=document.getElementById('model-list'); if(dl && MODELLER.length) dl.innerHTML=MODELLER.map(m=>'<option value="'+m+'">').join(''); }
 function modelSkor(m){ if(/2\.5-flash-lite/.test(m))return 3; if(/2\.5-flash/.test(m))return 4; if(/2\.0-flash/.test(m))return 2; if(/pro/.test(m))return 1; return 0; }
 function modelSirasi(){
-  const tercih=gercekModel(SETTINGS.model||'gemini-2.5-flash');
+  const tercih=gercekModel(SETTINGS.model||'gemini-2.5-flash-lite');
   const kesif=MODELLER.slice().filter(m=>!/pro/i.test(m)).sort((a,b)=>modelSkor(b)-modelSkor(a));
-  const varsayilan=['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash','gemini-flash-latest'];
-  return [tercih].concat(kesif,varsayilan).map(gercekModel).filter((v,i,a)=>v&&a.indexOf(v)===i);
+  const varsayilan=['gemini-2.5-flash-lite','gemini-2.5-flash','gemini-2.0-flash','gemini-flash-latest'];
+  return [tercih].concat(varsayilan,kesif).map(gercekModel).filter((v,i,a)=>v&&a.indexOf(v)===i);
 }
 
 /* ==================== HATA ÇEVİRİCİ ==================== */
@@ -728,7 +729,7 @@ function hataCevir(e){
   const m=String(e&&e.message||e||'');
   if(/API_KEY_INVALID|API key not valid|400.*API key/i.test(m)) return 'Anahtar geçersiz. aistudio.google.com/apikey adresinden yeni bir anahtar oluştur.';
   if(/PERMISSION_DENIED|referer|referrer/i.test(m)) return 'Anahtara web sitesi kısıtlaması konmuş. Kısıtlamasız yeni anahtar oluştur.';
-  if(/TUM_DOLU/i.test(m)) return 'Kota doldu: tüm anahtarlar dolu. Ayrı projelerde yeni anahtar açarsan her birinin kotası ayrı olur; ya da ⚙️\'den modeli gemini-2.5-flash-lite yap.';
+  if(/TUM_DOLU/i.test(m)) return 'Şu an tüm ortak anahtarların kotası dolu görünüyor. Havuza DAHA FAZLA ücretsiz anahtar ekle (her anahtar AYRI kota getirir) — Merkezi Yönetim → Ortak Anahtar Havuzu. Kota her gün (Pasifik gece yarısı) sıfırlanır. Birkaç saniye sonra tekrar dene.';
   if(/429|RESOURCE_EXHAUSTED|quota/i.test(m)) return 'Kota doldu (429). Biraz bekle ya da modeli gemini-2.5-flash-lite yap. Günlük kota Pasifik gece yarısı sıfırlanır.';
   if(/404|not found/i.test(m)) return 'Model bulunamadı (404). ⚙️\'den modeli gemini-2.5-flash yap.';
   if(/Bos yanit|MAX_TOKENS|empty/i.test(m)) return 'Model boş/kesik yanıt verdi. Tekrar dene; sürerse modeli gemini-2.5-flash yap.';
@@ -760,18 +761,20 @@ async function callText(prompt, system){
   if(!hasKey()) throw new Error('Anahtar yok');
   await ensureModels(); await rlBekle();
   const sysF = (system||'') + ogrenmeProfilSys();
-  const modeller=modelSirasi(); let sonHata=null, hepsiKota=(RING.keys.length>0);
-  if(RING.keys.length>1){ RING.i=Math.floor(Math.random()*RING.keys.length); } // havuzdan rastgele → kota dağıtımı
-  for(let k=0;k<RING.keys.length;k++){
-    const key=RING.keys[(RING.i+k)%RING.keys.length]; let buAnahtarKota=false;
+  const modeller=modelSirasi();
+  let keys=RING.keys.slice();
+  if(keys.length>1){ for(let i=keys.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=keys[i]; keys[i]=keys[j]; keys[j]=t; } } // rastgele sıra → kota dağıtımı
+  let sonHata=null, hepsi429=true, denendi=0;
+  for(const key of keys){
     for(const m of modeller){
-      try{ const r=await callGeminiRaw(key,m,prompt,sysF); RING.i=(RING.i+k)%RING.keys.length; return r; }
+      denendi++;
+      try{ const r=await callGeminiRaw(key,m,prompt,sysF); return r; }
       catch(e){ sonHata=e; const em=String(e.message||'');
-        if(/429|RESOURCE_EXHAUSTED|quota/i.test(em)){ buAnahtarKota=true; break; } }
+        if(!/429|RESOURCE_EXHAUSTED|quota/i.test(em)){ hepsi429=false; }
+        /* 429 olsa da diğer modeli/anahtarı dene — flash dolu ama flash-lite boş olabilir */ }
     }
-    if(!buAnahtarKota) hepsiKota=false;
   }
-  if(hepsiKota) throw new Error('TUM_DOLU'); throw sonHata||new Error('Bilinmeyen hata');
+  if(hepsi429 && denendi>0) throw new Error('TUM_DOLU'); throw sonHata||new Error('Bilinmeyen hata');
 }
 async function callJSON(prompt, system){
   const t=await callText(prompt+'\n\nSADECE geçerli JSON döndür; markdown, ``` veya açıklama YOK.', system);
