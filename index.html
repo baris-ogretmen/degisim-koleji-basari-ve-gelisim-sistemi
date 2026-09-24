@@ -1034,6 +1034,7 @@ function acilisAkis(){
   else { document.getElementById('main-nav').classList.remove('hidden'); git('panel'); }
   window.scrollTo(0,0);
   try{ merkeziProfilUygula(); }catch(e){}
+  try{ durumBildir(hasKey()?'hazir':'yok'); }catch(e){}
 }
 
 /* ==================== DİNAMİK NAV ==================== */
@@ -1375,8 +1376,9 @@ async function anlatimUret(dk){
   try{
     const t=await callText(seviyeMetni()+' '+d.ad+' dersi, "'+konu+'" konusu. Öğrenci: '+ilk+'. '+yonerge+RICH, sys);
     renderAI(box,'<div class="content-html">'+t+'</div>'
-      +'<div class="row2" style="margin-top:.7rem;"><button class="btn btn-emerald btn-sm" style="width:100%;" onclick="testBaslat('+jsq(dk)+')">✍️ Şimdi Test Çöz</button>'
-      +'<button class="btn btn-ghost btn-sm" style="width:100%;background:#eef2ff;color:#4338ca;border-color:#c7d2fe;" onclick="hocaAc(\'konu\',{ders:'+jsq(dk)+',konu:'+jsq(konu)+'})">💬 Hoca\'ya Sor</button></div>');
+      +'<div style="margin-top:.9rem; border-top:2px dashed #e2e8f0; padding-top:.7rem;"><div style="font-weight:900; font-size:.9rem; color:#065f46; margin-bottom:.5rem;">✍️ Bu konudan test çöz — seviye seç:</div><div class="row3">'
+      +['kolay','orta','zor'].map(z=>'<button class="btn btn-sm" style="width:100%; background:'+ZORLUK_RENK[z]+'; color:#fff;" onclick="testZorBaslat('+jsq(dk)+','+jsq(konu)+',\''+z+'\')">'+ZORLUK_ET[z]+'</button>').join('')+'</div>'
+      +'<button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.55rem; background:#eef2ff; color:#4338ca; border-color:#c7d2fe;" onclick="hocaAc(\'konu\',{ders:'+jsq(dk)+',konu:'+jsq(konu)+'})">💬 Hoca\'ya Sor</button></div>');
   }catch(e){ box.innerHTML='<div class="warn-box">'+hataCevir(e)+'</div>'; }
 }
 
@@ -1399,6 +1401,7 @@ async function etkinlikUret(dk){
 }
 
 /* ==================== QUIZ (akademik) ==================== */
+function testZorBaslat(dk, konu, z){ QUIZ_ZORLUK=z; testBaslat(dk, null, konu); }
 function testBaslat(dk, zorlukZorla, konuZorla){
   if(!requireKey()) return;
   const d=DERS_GET(dk); const konu=konuZorla||(document.getElementById('konu-'+dk)?document.getElementById('konu-'+dk).value:KONU(dk)[0]);
@@ -2251,6 +2254,18 @@ function merkezPanelCiz(){
     +'<button class="btn btn-ghost btn-sm" style="width:auto; margin-left:auto; padding:.3rem .6rem;" onclick="taleplerListele()">🔄 Yenile</button></div>'
     +'<div class="hint" style="margin:.3rem 0 .5rem;">Veliler çocuğun sayfasından öneri gönderir; buraya düşer. "Prompt\'a çevir & Onayla" dersen AI ham öneriyi düzgün bir öğrenme profiline çevirip o öğrenciye uygular.</div>'
     +'<div id="talep-liste"><div style="font-size:.74rem; color:#94a3b8; font-weight:700; text-align:center; padding:.4rem;">Yenile\'ye bas.</div></div></div>';
+  // ---- Canlı Durum (bağlı cihazlar) ----
+  h+='<div style="border-top:2px dashed #e2e8f0; margin-top:1.1rem; padding-top:.9rem;">'
+    +'<div style="display:flex; align-items:center; gap:.5rem;"><div style="font-weight:900; font-size:.95rem; color:#0369a1;"><i class="fas fa-satellite-dish"></i> Canlı Durum — Kimde AI Çalışıyor?</div>'
+    +'<button class="btn btn-ghost btn-sm" style="width:auto; margin-left:auto; padding:.3rem .6rem;" onclick="durumListele()">🔄 Yenile</button></div>'
+    +'<div class="hint" style="margin:.3rem 0 .5rem;">Sisteme giren cihazlar buraya düşer. 🟢 AI test edildi çalışıyor · 🔵 anahtar hazır · 🟡 kota dolu · 🔴 AI yok. Öğrenci "🔍 Nedenini bul"a basınca durumu netleşir.</div>'
+    +'<div id="durum-liste"><div style="font-size:.74rem; color:#94a3b8; font-weight:700; text-align:center; padding:.4rem;">Yenile\'ye bas.</div></div></div>';
+  // ---- AI Tanı (yönetici cihazı) ----
+  h+='<div style="border-top:2px dashed #e2e8f0; margin-top:1.1rem; padding-top:.9rem;">'
+    +'<div style="font-weight:900; font-size:.95rem; color:#b91c1c;"><i class="fas fa-stethoscope"></i> AI Tanı (bu cihaz)</div>'
+    +'<div class="hint" style="margin:.3rem 0 .5rem;">Ortak anahtarın neden çalışmadığını adım adım test eder ve tam nedenini gösterir.</div>'
+    +'<button class="btn btn-ghost btn-sm" style="width:100%; background:#fef2f2; color:#b91c1c; border-color:#fecaca;" onclick="aiTani(\'mz-tani\')">🔍 Neden çalışmıyor? Test et</button>'
+    +'<div id="mz-tani" style="margin-top:.5rem;"></div></div>';
   p.innerHTML=h;
   mzOrtakListele();
   mpListele();
@@ -2419,6 +2434,8 @@ function anahtarMerkeziAc(){
     +'<label class="lbl">Anahtarını buraya yapıştır</label>'
     +'<input class="inp" id="am-key" placeholder="AIza...">'
     +'<div class="row2" style="margin-top:.5rem;"><button class="btn btn-emerald btn-sm" style="width:100%;" onclick="anahtarMerkeziKaydet()">💾 Kaydet & Aç</button><button class="btn btn-ghost btn-sm" style="width:100%;" onclick="anahtarMerkeziTest()">🧪 Test Et</button></div>'
+    +'<button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.5rem; background:#fef2f2; color:#b91c1c; border-color:#fecaca;" onclick="aiTani(\'am-tani\')">🔍 AI çalışmıyor mu? Nedenini bul</button>'
+    +'<div id="am-tani" style="margin-top:.5rem;"></div>'
     +'<div id="am-sonuc" style="font-size:.8rem; font-weight:800; margin-top:.5rem;"></div>'
     +'<div class="row2" style="margin-top:.5rem;"><button class="btn btn-ghost btn-sm" style="width:100%;" onclick="anahtarlariKopyala()">📋 Tümünü Kopyala</button><button class="btn btn-ghost btn-sm" style="width:100%;" onclick="amPanodanYapistir()">📥 Panodan Yapıştır</button></div>'
     +'<div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:.9rem; padding:.8rem; margin-top:.9rem;">'
@@ -2436,12 +2453,74 @@ function anahtarMerkeziKaydet(){
   s.style.color='#059669'; s.innerHTML='✅ Kaydedildi! Yapay zekâ özellikleri artık açık.';
   setTimeout(anahtarMerkeziAc, 700);
 }
+/* ==================== AI TANI (otomatik teşhis: neden çalışmıyor?) ==================== */
+async function aiTani(hedefId){
+  const box=document.getElementById(hedefId); if(!box) return;
+  const sat=(ik,ad,det,rk)=>'<div style="display:flex; gap:.5rem; align-items:flex-start; padding:.45rem .2rem; border-bottom:1px dashed #eef2f7;"><span style="font-size:1.1rem;">'+ik+'</span><div style="flex:1;"><b style="font-size:.84rem; color:'+(rk||'#1e293b')+';">'+ad+'</b>'+(det?'<div style="font-size:.74rem; font-weight:700; color:#64748b; line-height:1.4;">'+det+'</div>':'')+'</div></div>';
+  box.innerHTML='<div style="background:#f8fafc; border-radius:.9rem; padding:.7rem;"><div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div><div style="text-align:center; font-size:.76rem; font-weight:800; color:#64748b;">🔍 Adım adım kontrol ediliyor…</div></div>';
+  let h='', sorun=null;
+  const net=navigator.onLine!==false;
+  h+=sat(net?'✅':'❌','İnternet bağlantısı', net?'Bağlı':'Bağlantı yok', net?null:'#dc2626'); if(!net) sorun='İnternet yok. Bağlantını kontrol et.';
+  const cfg=fbReady();
+  h+=sat(cfg?'✅':'⚠️','Bulut (Firebase) bağlı mı', cfg?'Evet, config gömülü':'Config yok — ortak havuz çalışmaz (sadece kişisel anahtar). Koda GOMULU_FIREBASE eklenmeli.', cfg?null:'#b45309');
+  let fsOk=false, fsErr='';
+  if(cfg){ try{ await firestoreGet('ayarlar','merkez'); fsOk=true; }catch(e){ fsErr=String(e.message||''); }
+    h+=sat(fsOk?'✅':'❌','Firestore okuma (kurallar)', fsOk?'Havuz okunabiliyor':('İzin/erişim hatası: '+fsErr.slice(0,45)), fsOk?null:'#dc2626');
+    if(!fsOk&&!sorun) sorun='Firestore kuralı okumaya izin vermiyor. Console → Firestore → Rules\'a wildcard kuralı (allow read: if true) yapıştırıp Publish et.'; }
+  const n=(RING.keys||[]).length;
+  h+=sat(n>0?'✅':'❌','Anahtar havuzu', n+' anahtar yüklü', n>0?null:'#dc2626');
+  if(n===0&&!sorun) sorun='Havuzda anahtar yok. Yönetici → Merkezi Yönetim → Ortak Anahtar Havuzu\'na anahtar ekleyip "Kaydet & Yayınla" demeli.';
+  let aiOk=false, aiKota=false, aiErr='';
+  if(n>0 && net){
+    box.innerHTML='<div style="background:#f8fafc; border-radius:.9rem; padding:.7rem;">'+h+sat('⏳','Gerçek AI çağrısı','test ediliyor…')+'</div>';
+    for(const k of RING.keys.slice(0,8)){ for(const m of modelSirasi()){ try{ await callGeminiRaw(k,m,'Sadece OK yaz.',''); aiOk=true; break; }catch(e){ aiErr=String(e.message||''); if(/429|quota|RESOURCE/i.test(aiErr)) aiKota=true; } } if(aiOk) break; }
+    h+=sat(aiOk?'✅':(aiKota?'🟡':'❌'),'Gerçek AI çağrısı', aiOk?'AI cevap verdi — çalışıyor!':(aiKota?'Anahtarlar geçerli ama kotası DOLU':('Başarısız: '+aiErr.slice(0,45))), aiOk?'#059669':(aiKota?'#b45309':'#dc2626'));
+    if(!aiOk){ if(aiKota&&!sorun) sorun='Tüm anahtarların kotası dolu. Havuza DAHA FAZLA ücretsiz anahtar ekle (her anahtar ayrı kota). Kota her gün Pasifik gece yarısı sıfırlanır.'; else if(!sorun) sorun='Havuzdaki anahtarlar geçersiz. Yönetici anahtarları yenilemeli.'; }
+  }
+  const ok=aiOk;
+  const ozet = ok
+    ? '<div style="background:#ecfdf5; border:2px solid #10b981; border-radius:.9rem; padding:.8rem; margin-top:.6rem; text-align:center; font-weight:900; color:#065f46;">🎉 AI bu cihazda ÇALIŞIYOR!</div>'
+    : '<div style="background:#fef2f2; border:2px solid #ef4444; border-radius:.9rem; padding:.8rem; margin-top:.6rem;"><div style="font-weight:900; color:#991b1b;">⛔ Takıldığı yer / neden:</div><div style="font-weight:700; color:#7f1d1d; margin-top:.25rem; font-size:.86rem; line-height:1.5;">'+(sorun||'Bilinmeyen bir sorun.')+'</div><button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.55rem;" onclick="taniKopyala('+jsq(sorun||'Bilinmeyen')+')">📋 Nedeni Kopyala (Barış Hocama gönder)</button></div>';
+  box.innerHTML='<div style="background:#fff; border:1px solid #e2e8f0; border-radius:.9rem; padding:.7rem;">'+h+ozet+'</div>';
+  durumBildir(ok?'ok':(aiKota?'kota':(n>0?'gecersiz':'yok')));
+}
+function taniKopyala(t){ navigator.clipboard.writeText('🔍 AI Tanı sonucu → '+t).then(()=>alert('Kopyalandı. Barış Hocama WhatsApp\'tan gönderebilirsin.')).catch(()=>{}); }
+/* ---- Cihaz durum bildirimi (heartbeat) + canlı liste ---- */
+async function durumBildir(durum){
+  if(typeof AKTIF==='undefined'||!AKTIF||!fbReady()) return;
+  try{ await firestoreSet('durum', profilSlug(AKTIF.ad,AKTIF.soyad,AKTIF.kademe), { ad:AKTIF.ad, kademe:AKTIF.kademe, sube:AKTIF.sube||'', durum:durum||'hazir', tarih:new Date().toISOString() }); }catch(e){}
+}
+async function durumListele(){
+  const box=document.getElementById('durum-liste'); if(!box) return;
+  if(!fbReady()){ box.innerHTML='<div style="font-size:.74rem; color:#b45309; font-weight:700;">Bulut bağlı değil.</div>'; return; }
+  box.innerHTML='<div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div>';
+  try{
+    let arr=await firestoreList('durum', mpToken()); arr=arr.filter(x=>x.ad).sort((a,b)=>(b.tarih||'').localeCompare(a.tarih||''));
+    if(!arr.length){ box.innerHTML='<div style="font-size:.74rem; color:#94a3b8; font-weight:700; text-align:center; padding:.4rem;">Henüz bağlanan cihaz yok. Öğrenciler açınca burada görünür.</div>'; return; }
+    const ik=d=> d==='ok'?'🟢': d==='hazir'?'🔵': d==='kota'?'🟡':'🔴';
+    const calisan=arr.filter(x=>x.durum==='ok'||x.durum==='hazir').length;
+    box.innerHTML='<div style="font-size:.74rem; font-weight:900; color:#065f46; margin-bottom:.35rem;">'+arr.length+' cihaz · '+calisan+' AI hazır 🟢🔵 · '+(arr.length-calisan)+' sorunlu 🟡🔴</div>'
+      +arr.map(x=>'<div style="display:flex; align-items:center; gap:.5rem; padding:.35rem .5rem; background:#f8fafc; border-radius:.5rem; margin-bottom:.25rem;"><span>'+ik(x.durum)+'</span><span style="flex:1; font-size:.8rem; font-weight:800; color:#1e293b;">'+x.ad+' <span style="color:#94a3b8; font-weight:700;">· '+((KADEMELER[x.kademe]||{}).kisa||'')+(x.sube?(' '+x.sube):'')+'</span></span><span style="font-size:.64rem; color:#94a3b8;">'+(x.tarih?new Date(x.tarih).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):'')+'</span></div>').join('');
+  }catch(e){ const em=String(e.message); box.innerHTML='<div style="font-size:.74rem; color:#b45309; font-weight:700;">'+(/403|PERMISSION/i.test(em)?'Listeyi görmek için Gmail ile giriş yap / kuralları yayınla.':'Alınamadı: '+em.slice(0,40))+'</div>'; }
+}
 async function anahtarMerkeziTest(){
-  const k=(document.getElementById('am-key').value||'').trim()||((RING.keys||[])[0]); const s=document.getElementById('am-sonuc');
-  if(!k){ s.style.color='#b45309'; s.innerText='Önce anahtar yapıştır.'; return; }
-  s.style.color='#64748b'; s.innerText='Test ediliyor...';
-  try{ const list=await geminiListModels(k); s.style.color='#059669'; s.innerText='🟢 Çalışıyor! ('+list.length+' model). Şimdi Kaydet.'; }
-  catch(e){ const em=String(e.message); s.style.color='#dc2626'; s.innerText = /429|quota/i.test(em)?'🟡 Geçerli ama kotası dolu.':'🔴 Anahtar geçersiz. Yeni bir tane oluştur.'; }
+  const s=document.getElementById('am-sonuc');
+  const pasted=(document.getElementById('am-key').value||'').trim();
+  const keys = pasted ? [pasted] : (RING.keys||[]);
+  if(!keys.length){ s.style.color='#b45309'; s.innerText='Anahtar yok. Kendi anahtarını yapıştır ya da öğretmenin ortak anahtarı açmasını bekle.'; return; }
+  s.style.color='#64748b'; s.innerText='🤖 AI bağlantısı gerçek bir soruyla test ediliyor…';
+  try{ await ensureModels(); }catch(e){}
+  let ok=false, kota=false, sonErr='';
+  for(const k of keys){
+    for(const m of modelSirasi()){
+      try{ await callGeminiRaw(k,m,'Sadece "OK" yaz.',''); ok=true; break; }
+      catch(e){ const em=String(e.message||''); sonErr=em; if(/429|quota|RESOURCE/i.test(em)) kota=true; }
+    }
+    if(ok) break;
+  }
+  if(ok){ s.style.color='#059669'; s.innerHTML='🟢 <b>AI çalışıyor!</b> Bu cihazda her şey hazır.'+(pasted?' Şimdi Kaydet.':''); }
+  else if(kota){ s.style.color='#b45309'; s.innerText='🟡 Anahtar(lar) geçerli ama kotası dolu. Öğretmenin havuza daha fazla anahtar eklemesi gerekiyor.'; }
+  else { s.style.color='#dc2626'; s.innerText='🔴 AI bağlantısı yok / anahtar geçersiz. ('+sonErr.slice(0,45)+')'; }
 }
 async function amPanodanYapistir(){ try{ const t=await navigator.clipboard.readText(); const y=anahtarlariAyikla(t); if(!y.length){ alert('Panoda anahtar yok.'); return; } const b=Array.from(new Set((RING.keys||[]).concat(y))); ringSet(b); ringSave(); updateStatusDot(); populateModels(); anahtarMerkeziAc(); }catch(e){ alert('Pano okunamadı.'); } }
 function whatsappGonder(){
@@ -2644,6 +2723,11 @@ function zKonumSifirla(){ ['set','key','qr'].forEach(k=>{ try{ localStorage.remo
 window.onload=function(){
   loadSettings(); ringLoad(); initPWA(); keyFabGoster(); updateStatusDot(); populateModels();
   ZIRVE_merkezYukle();
+  // Yönetici yeni anahtar yayınlayınca AÇIK cihazlar (öğrenci/veli) sekmeye dönünce taze çeker — yeniden giriş gerekmez
+  var _mSon=0; function _merkezReSync(){ var now=Date.now(); if(now-_mSon<15000) return; _mSon=now; try{ ZIRVE_merkezYukle(); }catch(e){} }
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) _merkezReSync(); });
+  window.addEventListener('focus', _merkezReSync);
+  setInterval(_merkezReSync, 120000);
   renderLoginKademe();
   document.getElementById('ayar-modal').addEventListener('click', e=>{ if(e.target.id==='ayar-modal') ayarKapat(); });
   document.getElementById('qr-modal').addEventListener('click', e=>{ if(e.target.id==='qr-modal') qrKapat(); });
