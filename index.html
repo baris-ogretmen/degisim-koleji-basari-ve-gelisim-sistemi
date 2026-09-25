@@ -663,7 +663,8 @@ const BILSEM_ALAN = [
 /* ==================== DURUM ==================== */
 let AKTIF = null;
 let SETTINGS = { keys:[], model:'gemini-2.5-flash-lite' };
-let RING = { keys:[], i:0, cool:{} };
+let RING = { keys:[], ortak:[], i:0, cool:{} };
+function aktifKeys(){ return Array.from(new Set((RING.keys||[]).concat(RING.ortak||[]))); }
 let RL = { rpm:8, son:[] };
 let MODELLER = [];
 let QUIZ = { list:[], i:0, dogru:0, ders:'', konu:'', zorluk:'' };
@@ -696,7 +697,7 @@ function ringLoad(){
 }
 function ringSave(){ try{ localStorage.setItem('dk_okul_keys',JSON.stringify(RING.keys)); localStorage.setItem('dk_okul_keycool',JSON.stringify(RING.cool)); }catch(e){} }
 function ringSet(arr){ RING.keys=arr.filter(Boolean); RING.i=0; SETTINGS.keys=RING.keys; }
-function hasKey(){ return RING.keys && RING.keys.length>0; }
+function hasKey(){ return aktifKeys().length>0; }
 function anahtarlariAyikla(txt){ return (txt||'').split(/[\n,;\s]+/).map(s=>s.trim()).filter(s=>s.length>10); }
 function updateStatusDot(){ const d=document.getElementById('status-dot'); if(d) d.className='status-dot'+(hasKey()?' ok':''); }
 
@@ -714,7 +715,7 @@ function gercekModel(m){ if(!m) return 'gemini-2.5-flash';
   return m;
 }
 async function ensureModels(){ if(MODELLER.length || !hasKey()) return;
-  for(const key of RING.keys){ try{ const list=await geminiListModels(key); if(list.length){ MODELLER=list; break; } }catch(e){} } }
+  for(const key of aktifKeys()){ try{ const list=await geminiListModels(key); if(list.length){ MODELLER=list; break; } }catch(e){} } }
 async function populateModels(){ await ensureModels(); const dl=document.getElementById('model-list'); if(dl && MODELLER.length) dl.innerHTML=MODELLER.map(m=>'<option value="'+m+'">').join(''); }
 function modelSkor(m){ if(/2\.5-flash-lite/.test(m))return 3; if(/2\.5-flash/.test(m))return 4; if(/2\.0-flash/.test(m))return 2; if(/pro/.test(m))return 1; return 0; }
 function modelSirasi(){
@@ -762,7 +763,7 @@ async function callText(prompt, system){
   await ensureModels(); await rlBekle();
   const sysF = (system||'') + ogrenmeProfilSys();
   const modeller=modelSirasi();
-  let keys=RING.keys.slice();
+  let keys=aktifKeys().slice();
   if(keys.length>1){ for(let i=keys.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=keys[i]; keys[i]=keys[j]; keys[j]=t; } } // rastgele sıra → kota dağıtımı
   let sonHata=null, hepsi429=true, denendi=0;
   for(const key of keys){
@@ -879,8 +880,8 @@ async function anahtarTestEt(){
   const p=document.getElementById('kh-panel'); p.innerHTML='';
   for(let i=0;i<keys.length;i++){
     const div=document.createElement('div'); div.className='kh-item'; div.innerHTML='<span>⏳</span> Anahtar '+(i+1)+' test ediliyor...'; p.appendChild(div);
-    try{ const list=await geminiListModels(keys[i]); div.innerHTML='<span>🟢</span> Anahtar '+(i+1)+' — çalışıyor ('+list.length+' model)'; }
-    catch(e){ const em=String(e.message); div.innerHTML= /429|quota/i.test(em) ? '<span>🟡</span> Anahtar '+(i+1)+' — kota dolu' : '<span>🔴</span> Anahtar '+(i+1)+' — geçersiz'; }
+    let ok2=false,kota2=false,err2=''; for(const m of modelSirasi()){ try{ await callGeminiRaw(keys[i],m,'Sadece OK yaz.',''); ok2=true; break; }catch(e){ err2=String(e.message||''); if(/429|quota|RESOURCE/i.test(err2)) kota2=true; } }
+    div.innerHTML= ok2 ? '<span>🟢</span> Anahtar '+(i+1)+' — çalışıyor' : (kota2 ? '<span>🟡</span> Anahtar '+(i+1)+' — kota dolu' : '<span>🔴</span> Anahtar '+(i+1)+' — geçersiz');
   }
 }
 
@@ -2136,14 +2137,10 @@ function fbAuthHata(e){ const m=String(e&&e.message||e);
 /* ==================== ORTAK ANAHTAR YÜKLE / UYGULA ==================== */
 let MERKEZ={ yil:'', ortak:'', auth:null };
 function ortakAnahtarUygula(str, kalici){
-  const yeni=anahtarlariAyikla(str||''); if(!yeni.length) return 0;
-  const mevcut=RING.keys||[];
-  const birlesik=Array.from(new Set(mevcut.concat(yeni)));
-  RING.keys=birlesik; SETTINGS.keys=birlesik;
-  try{ localStorage.setItem('dk_okul_ortak', str); }catch(e){}
-  if(kalici) ringSave();
+  RING.ortak = anahtarlariAyikla(str||''); /* REPLACE: yönetici silince öğrenci cihazında da düşer (buluttan taze) */
+  try{ if(kalici) localStorage.setItem('dk_okul_ortak', str||''); }catch(e){}
   updateStatusDot();
-  return yeni.length;
+  return RING.ortak.length;
 }
 async function ZIRVE_merkezYukle(){
   // 1) yerel ortak anahtar (önce hızlıca uygula ki AI açık gelsin)
@@ -2158,7 +2155,7 @@ async function ZIRVE_merkezYukle(){
 }
 
 /* ==================== MERKEZİ YÖNETİM (Kurucu paneli) ==================== */
-function adminPin(){ try{ const p=localStorage.getItem('dk_okul_adminpin'); if(p) return p; }catch(e){} return GOMULU_ADMIN_PIN || '2026'; }
+function adminPin(){ try{ const p=localStorage.getItem('dk_okul_adminpin'); if(p) return p; }catch(e){} return GOMULU_ADMIN_PIN || 'degisim2026'; }
 function adminEmail(){ try{ const e=localStorage.getItem('dk_okul_adminemail'); if(e) return e; }catch(_){} return GOMULU_ADMIN_EMAIL||''; }
 function merkeziYonetimAc(){ document.getElementById('merkez-kilit').classList.remove('hidden'); document.getElementById('merkez-panel').classList.add('hidden'); const em=document.getElementById('merkez-email'); if(em) em.value=adminEmail(); ['merkez-sifre','merkez-pin'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); const kf=document.getElementById('kilit-fb-sonuc'); if(kf) kf.innerText=''; const h=document.getElementById('merkez-hata'); h.innerText=''; h.style.color='#dc2626'; document.getElementById('merkez-modal').classList.add('open'); }
 function merkeziYonetimKapat(){ document.getElementById('merkez-modal').classList.remove('open'); }
@@ -2219,7 +2216,9 @@ function merkezPanelCiz(){
     +'<textarea class="inp" id="mz-ortak" rows="3" placeholder="AIza... (her satıra bir anahtar)" style="resize:vertical; font-size:.8rem;" oninput="mzOrtakListele()">'+ortakArr.join('\n')+'</textarea>'
     +'<div class="row3" style="margin-top:.5rem;"><button class="btn btn-ghost btn-sm" style="width:100%;" onclick="mzPanoKopyala()">📋 Tümünü Kopyala</button><button class="btn btn-ghost btn-sm" style="width:100%;" onclick="mzPanoYapistir()">📥 Panodan Yapıştır</button><button class="btn btn-ghost btn-sm" style="width:100%;" onclick="mzOrtakTemizle()">🗑️ Hepsini Sil</button></div>'
     +'<div style="font-size:.74rem; font-weight:800; color:#64748b; margin-top:.5rem;">Havuzda <b id="mz-ortak-sayi">'+ortakArr.length+'</b> / 1000 anahtar</div>'
-    +'<div id="mz-ortak-liste" style="margin-top:.4rem; max-height:190px; overflow-y:auto;"></div>';
+    +'<div id="mz-ortak-liste" style="margin-top:.4rem; max-height:190px; overflow-y:auto;"></div>'
+    +'<button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.5rem; background:#eff6ff; color:#1e3a8a; border-color:#bfdbfe;" onclick="mzHavuzTest()">🔎 Havuzdaki Anahtarları Test Et (gerçek çağrı)</button>'
+    +'<div id="mz-havuz-test" style="margin-top:.4rem;"></div>';
   // Firebase config
   h+='<details style="margin-top:.9rem;"><summary style="font-weight:900; font-size:.82rem; color:#2563eb; cursor:pointer;">☁️ Bulut Senkron (Firebase) '+(bulut?'✅ bağlı':'— kurulu değil')+'</summary>'
     +'<div style="margin-top:.6rem; background:#f8fafc; padding:.7rem; border-radius:.8rem;">'
@@ -2379,6 +2378,19 @@ function mzOrtakListele(){
 }
 function mzOrtakSil(i){ const box=document.getElementById('mz-ortak'); const arr=anahtarlariAyikla(box.value); arr.splice(i,1); box.value=arr.join('\n'); mzOrtakListele(); }
 function mzOrtakTemizle(){ if(!confirm('Havuzdaki TÜM ortak anahtarlar silinsin mi? (Kaydet demeden yayınlanmaz)')) return; const box=document.getElementById('mz-ortak'); box.value=''; mzOrtakListele(); }
+async function mzHavuzTest(){
+  const arr=anahtarlariAyikla(document.getElementById('mz-ortak').value); const box=document.getElementById('mz-havuz-test');
+  if(!arr.length){ box.innerHTML='<div style="font-size:.76rem; color:#b45309; font-weight:800;">Önce havuza anahtar ekle.</div>'; return; }
+  let calisan=0,kota=0,gecersiz=0; box.innerHTML='';
+  for(let i=0;i<arr.length;i++){
+    const div=document.createElement('div'); div.className='kh-item'; div.innerHTML='<span>⏳</span> '+mzMaskele(arr[i])+' test ediliyor…'; box.appendChild(div);
+    let ok=false,kt=false; for(const m of modelSirasi()){ try{ await callGeminiRaw(arr[i],m,'Sadece OK yaz.',''); ok=true; break; }catch(e){ if(/429|quota|RESOURCE/i.test(String(e.message||''))) kt=true; } }
+    if(ok){ calisan++; div.innerHTML='<span>🟢</span> '+mzMaskele(arr[i])+' — çalışıyor'; }
+    else if(kt){ kota++; div.innerHTML='<span>🟡</span> '+mzMaskele(arr[i])+' — kota dolu'; }
+    else { gecersiz++; div.innerHTML='<span>🔴</span> '+mzMaskele(arr[i])+' — geçersiz'; }
+  }
+  const ozet=document.createElement('div'); ozet.style.cssText='font-weight:900; font-size:.82rem; margin-top:.4rem; color:#065f46;'; ozet.innerHTML='📊 '+calisan+' çalışıyor 🟢 · '+kota+' kota dolu 🟡 · '+gecersiz+' geçersiz 🔴 (toplam '+arr.length+')'; box.appendChild(ozet);
+}
 function mzPanoKopyala(){ const t=anahtarlariAyikla(document.getElementById('mz-ortak').value).join('\n'); if(!t){ alert('Kopyalanacak anahtar yok.'); return; } navigator.clipboard.writeText(t).then(()=>alert('✓ '+anahtarlariAyikla(t).length+' anahtar panoya kopyalandı.')).catch(()=>alert('Kopyalanamadı.')); }
 async function mzPanoYapistir(){ try{ const t=await navigator.clipboard.readText(); const box=document.getElementById('mz-ortak'); let b=Array.from(new Set(anahtarlariAyikla(box.value+'\n'+t))); if(b.length>1000) b=b.slice(0,1000); box.value=b.join('\n'); mzOrtakListele(); alert('✓ Panodan eklendi. Havuzda toplam '+b.length+' anahtar. "Kaydet & Yayınla" demeyi unutma.'); }catch(e){ alert('Pano okunamadı. Anahtarları elle yapıştır.'); } }
 function mzFbKaydet(){
@@ -2442,7 +2454,20 @@ function anahtarMerkeziAc(){
     +'<div style="font-weight:900; color:#166534; margin-bottom:.3rem;">🟢 Anahtarını Barış Öğretmen\'e ilet</div>'
     +'<div style="font-size:.8rem; font-weight:700; color:#15803d; line-height:1.5; margin-bottom:.5rem;">Aldığın ücretsiz anahtarı, <b>adınla birlikte</b> WhatsApp\'tan iletirsen okulun ortak havuzuna eklenebilir ve herkeste AI açık olur. Zorunlu değildir.</div>'
     +'<button class="btn btn-emerald btn-sm" style="width:100%;" onclick="whatsappGonder()"><i class="fab fa-whatsapp mr-1"></i> WhatsApp ile Gönder</button></div>'
-    +'<div style="font-size:.7rem; font-weight:700; color:#94a3b8; line-height:1.5; margin-top:.9rem; border-top:1px dashed #e2e8f0; padding-top:.6rem;">🔒 <b>KVKK / Gizlilik:</b> Bu sistem kişisel verilerinizi bir sunucuda toplamaz. Girdiğiniz bilgiler yalnızca kendi cihazınızda (tarayıcı hafızasında) saklanır. Anahtar paylaşımı gönüllüdür ve yalnızca yapay zekâ özelliklerini açmak içindir; herhangi bir ödeme veya abonelik yoktur.</div>';
+    +'<div style="font-size:.7rem; font-weight:700; color:#94a3b8; line-height:1.5; margin-top:.9rem; border-top:1px dashed #e2e8f0; padding-top:.6rem;">🔒 <b>KVKK / Gizlilik:</b> Bu sistem kişisel verilerinizi bir sunucuda toplamaz. Girdiğiniz bilgiler yalnızca kendi cihazınızda (tarayıcı hafızasında) saklanır. Anahtar paylaşımı gönüllüdür ve yalnızca yapay zekâ özelliklerini açmak içindir; herhangi bir ödeme veya abonelik yoktur.</div>'
+    +'<div style="margin-top:.9rem; background:linear-gradient(135deg,#f0f9ff,#eff6ff); border:2px solid #7dd3fc; border-radius:1rem; padding:.9rem;">'
+    +'<div style="font-weight:900; font-size:.92rem; color:#075985;">🚀 Hiç kesinti istemiyorsan (okul/kurumsal için)</div>'
+    +'<div style="font-size:.8rem; font-weight:700; color:#0c4a6e; line-height:1.55; margin:.4rem 0;">Ücretsiz anahtarların günlük kotası vardır; çok kullanıcıda dolabilir. Kesintisiz kullanım için Google\'dan <b>FATURALI (pay-as-you-go / ücretli)</b> bir anahtar alıp havuza ekle. Kodda fark yok — sadece kotası çok büyük olur.</div>'
+    +'<div class="content-html" style="font-size:.78rem;"><ol style="padding-left:0;">'
+    +'<li>Google AI Studio\'da anahtar oluştur: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></li>'
+    +'<li>Google Cloud → <b>Faturalandırma</b>\'ya kredi kartı ekleyip etkinleştir: <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener">console.cloud.google.com/billing</a></li>'
+    +'<li>Aynı projede <b>Generative Language API</b>\'yi aç: <a href="https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com" target="_blank" rel="noopener">API\'yi Etkinleştir</a></li>'
+    +'<li>Anahtarı oluştur/kopyala; güvenlik için anahtara <b>kısıtlama</b> (HTTP referrer/API) koy.</li>'
+    +'<li>Bu ücretli anahtarı <b>Merkezi Yönetim → Ortak Anahtar Havuzu</b>\'na ekle → Kaydet & Yayınla. (Önce ücretsizler, dolunca ücretli devreye girer → kesinti olmaz.)</li>'
+    +'</ol></div>'
+    +'<div class="warn-box" style="margin:.5rem 0; font-size:.74rem;">⚠️ Ücretli anahtarda kullandıkça ödersin. Google Cloud\'da <b>Bütçe & Uyarı (Budget & Alerts)</b> koymanı ve anahtara kısıtlama eklemeni öneririz.</div>'
+    +'<div class="row2"><button class="btn btn-primary btn-sm" style="width:100%;" onclick="acLink(\'https://console.cloud.google.com/billing\')">🔗 Ücretli Anahtar Al</button><button class="btn btn-emerald btn-sm" style="width:100%;" onclick="acLink(\'https://wa.me/905076319287?text=\'+encodeURIComponent(\'Barış Hocam, ücretli/kesintisiz AI anahtarı kurulumunda yardım ister misiniz?\'))">📱 WhatsApp\'tan Yardım</button></div>'
+    +'</div>';
   document.getElementById('anahtar-modal').classList.add('open');
 }
 function anahtarMerkeziKapat(){ document.getElementById('anahtar-modal').classList.remove('open'); }
@@ -2467,13 +2492,13 @@ async function aiTani(hedefId){
   if(cfg){ try{ await firestoreGet('ayarlar','merkez'); fsOk=true; }catch(e){ fsErr=String(e.message||''); }
     h+=sat(fsOk?'✅':'❌','Firestore okuma (kurallar)', fsOk?'Havuz okunabiliyor':('İzin/erişim hatası: '+fsErr.slice(0,45)), fsOk?null:'#dc2626');
     if(!fsOk&&!sorun) sorun='Firestore kuralı okumaya izin vermiyor. Console → Firestore → Rules\'a wildcard kuralı (allow read: if true) yapıştırıp Publish et.'; }
-  const n=(RING.keys||[]).length;
+  const n=aktifKeys().length;
   h+=sat(n>0?'✅':'❌','Anahtar havuzu', n+' anahtar yüklü', n>0?null:'#dc2626');
   if(n===0&&!sorun) sorun='Havuzda anahtar yok. Yönetici → Merkezi Yönetim → Ortak Anahtar Havuzu\'na anahtar ekleyip "Kaydet & Yayınla" demeli.';
   let aiOk=false, aiKota=false, aiErr='';
   if(n>0 && net){
     box.innerHTML='<div style="background:#f8fafc; border-radius:.9rem; padding:.7rem;">'+h+sat('⏳','Gerçek AI çağrısı','test ediliyor…')+'</div>';
-    for(const k of RING.keys.slice(0,8)){ for(const m of modelSirasi()){ try{ await callGeminiRaw(k,m,'Sadece OK yaz.',''); aiOk=true; break; }catch(e){ aiErr=String(e.message||''); if(/429|quota|RESOURCE/i.test(aiErr)) aiKota=true; } } if(aiOk) break; }
+    for(const k of aktifKeys().slice(0,8)){ for(const m of modelSirasi()){ try{ await callGeminiRaw(k,m,'Sadece OK yaz.',''); aiOk=true; break; }catch(e){ aiErr=String(e.message||''); if(/429|quota|RESOURCE/i.test(aiErr)) aiKota=true; } } if(aiOk) break; }
     h+=sat(aiOk?'✅':(aiKota?'🟡':'❌'),'Gerçek AI çağrısı', aiOk?'AI cevap verdi — çalışıyor!':(aiKota?'Anahtarlar geçerli ama kotası DOLU':('Başarısız: '+aiErr.slice(0,45))), aiOk?'#059669':(aiKota?'#b45309':'#dc2626'));
     if(!aiOk){ if(aiKota&&!sorun) sorun='Tüm anahtarların kotası dolu. Havuza DAHA FAZLA ücretsiz anahtar ekle (her anahtar ayrı kota). Kota her gün Pasifik gece yarısı sıfırlanır.'; else if(!sorun) sorun='Havuzdaki anahtarlar geçersiz. Yönetici anahtarları yenilemeli.'; }
   }
@@ -2506,7 +2531,7 @@ async function durumListele(){
 async function anahtarMerkeziTest(){
   const s=document.getElementById('am-sonuc');
   const pasted=(document.getElementById('am-key').value||'').trim();
-  const keys = pasted ? [pasted] : (RING.keys||[]);
+  const keys = pasted ? [pasted] : aktifKeys();
   if(!keys.length){ s.style.color='#b45309'; s.innerText='Anahtar yok. Kendi anahtarını yapıştır ya da öğretmenin ortak anahtarı açmasını bekle.'; return; }
   s.style.color='#64748b'; s.innerText='🤖 AI bağlantısı gerçek bir soruyla test ediliyor…';
   try{ await ensureModels(); }catch(e){}
