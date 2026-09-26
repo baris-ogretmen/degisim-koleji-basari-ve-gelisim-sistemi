@@ -1029,7 +1029,7 @@ function yeniProfil(ad,soyad,kademe,sube){
   return { sl, ad:ad.trim(), soyad:(soyad||'').trim(), kademe, sube:(sube||'').trim(), olusturma:new Date().toISOString(),
     onboarded:false, seviye:{}, beceri:{}, veliGozlem:'', hedefSinav:(KADEMELER[kademe].sinav||null), saat:'',
     kayitlar:[], denemeler:[], hatalar:{}, okunanKonu:{}, okulKonu:{}, gelisimGecmis:[], notlar:[], rozetMeta:{cozulen:0},
-    ogrenmeProfili:{ serbest:'', ozet:'', tempo:'', guncelleme:'' } };
+    ogrenmeProfili:{ serbest:'', ozet:'', tempo:'', guncelleme:'' }, seri:{ sayac:0, sonGun:'' } };
 }
 function girisYap(){
   const ad=(document.getElementById('login-ad').value||'').trim();
@@ -1084,6 +1084,7 @@ function acilisAkis(){
   window.scrollTo(0,0);
   try{ merkeziProfilUygula(); }catch(e){}
   try{ durumBildir(hasKey()?'hazir':'yok'); }catch(e){}
+  try{ seriGuncelle(); }catch(e){}
 }
 
 /* ==================== DİNAMİK NAV ==================== */
@@ -1244,7 +1245,7 @@ function renderPanel(){
     +'<div style="display:flex; align-items:center; gap:.8rem;"><div style="font-size:2.6rem;">'+kk.emoji+'</div>'
     +'<div style="flex:1;"><div style="font-size:.75rem; font-weight:800; opacity:.9;">'+kk.ad+(AKTIF.sube?(' · '+AKTIF.sube):'')+'</div>'
     +'<div style="font-size:1.15rem; font-weight:900; line-height:1.2;">Merhaba '+ilk+'! 👋</div>'
-    +'<div style="font-size:.75rem; font-weight:700; opacity:.92; margin-top:.15rem;">Bugün de bir adım daha ileri.</div></div></div></div>';
+    +'<div style="font-size:.75rem; font-weight:700; opacity:.92; margin-top:.15rem;">Bugün de bir adım daha ileri.'+((AKTIF.seri&&AKTIF.seri.sayac>1)?(' <span style="background:rgba(255,255,255,.22); padding:.1rem .5rem; border-radius:1rem; font-weight:900;">🔥 '+AKTIF.seri.sayac+' günlük seri</span>'):'')+'</div></div></div></div>';
 
   h+=anahtarUyariHTML();
 
@@ -1559,6 +1560,7 @@ function hocaSoruAc(idx){ const q=QUIZ.list[idx]; hocaAc('soru', q); }
 function quizSonraki(){ QUIZ.i++; if(QUIZ.i<QUIZ.list.length) quizGoster(); else quizBitir(); }
 function quizBitir(){
   const v=document.getElementById('view-quiz'); const t=QUIZ.list.length, d=QUIZ.dogru, pct=t?Math.round(d/t*100):0;
+  if(pct>=80){ try{ konfeti(); }catch(e){} }
   let mesaj;
   if(QUIZ.track==='guc') mesaj=pct>=80?'Muhteşem! 🚀 Güçlü yönün gerçekten parlıyor. Bu tempoda bir üst seviyeye hazırsın.':pct>=50?'Çok iyi! 💪 Zorlu sorularda böyle sonuç, potansiyelinin göstergesi.':'Zorlu sorulardı 🌟 Bunları denemen bile büyük cesaret. Anlatımı bir kez daha oku, tekrar dene.';
   else mesaj=pct>=80?'Harika! 🎉 Bu konuyu neredeyse çözdün.':pct>=50?'İyi gidiyor 💪 Yanlışlarını defterinden tekrar et.':'Panik yok 🌱 Anlatımı tekrar oku, sonra yeniden dene. Her tekrar seni büyütür.';
@@ -2461,26 +2463,30 @@ function mzOrtakTemizle(){ if(!confirm('Havuzdaki TÜM ortak anahtarlar silinsin
 async function mzHavuzTest(){
   const arr=anahtarlariAyikla(document.getElementById('mz-ortak').value); const box=document.getElementById('mz-havuz-test');
   if(!arr.length){ box.innerHTML='<div style="font-size:.76rem; color:#b45309; font-weight:800;">Önce havuza anahtar ekle.</div>'; return; }
-  box.innerHTML='<div style="font-size:.78rem; font-weight:900; color:#0369a1; margin-bottom:.4rem;">🔎 '+arr.length+' anahtar test ediliyor… (birkaç saniye)</div>';
+  box.innerHTML='<div style="font-size:.78rem; font-weight:900; color:#0369a1; margin-bottom:.4rem;">🔎 '+arr.length+' anahtar test ediliyor…</div>';
   const liste=document.createElement('div'); box.appendChild(liste);
-  const model=modelSirasi()[0]||'gemini-2.5-flash-lite';
-  let calisan=0,kota=0,gecersiz=0;
+  const model=modelSirasi()[0]||'gemini-2.5-flash-lite'; const m2=modelSirasi()[1];
+  function zamanAsimli(p,ms){ return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]); }
+  let calisan=0,kota=0,gecersiz=0,yavas=0;
   for(let i=0;i<arr.length;i++){
     const div=document.createElement('div'); div.className='kh-item'; div.innerHTML='<span>⏳</span> '+mzMaskele(arr[i]); liste.appendChild(div);
+    await new Promise(r=>setTimeout(r,15)); // arayüz nefes alsın
     let durum='';
-    try{ await callGeminiRaw(arr[i],model,'OK',''); durum='ok'; }
+    try{ await zamanAsimli(callGeminiRaw(arr[i],model,'OK',''),8000); durum='ok'; }
     catch(e){ const em=String(e.message||'');
-      if(/429|quota|RESOURCE/i.test(em)){ // flash-lite doluysa 1 alternatif model dene
-        let alt=false; const m2=modelSirasi()[1]; if(m2){ try{ await callGeminiRaw(arr[i],m2,'OK',''); alt=true; }catch(_){ } }
-        durum= alt?'ok':'kota';
-      } else durum='invalid';
+      if(/timeout/i.test(em)) durum='yavas';
+      else if(/429|quota|RESOURCE/i.test(em)){ let alt=false; if(m2){ try{ await zamanAsimli(callGeminiRaw(arr[i],m2,'OK',''),8000); alt=true; }catch(_){ } } durum= alt?'ok':'kota'; }
+      else durum='invalid';
     }
     if(durum==='ok'){ calisan++; div.innerHTML='<span>🟢</span> '+mzMaskele(arr[i])+' — çalışıyor'; }
     else if(durum==='kota'){ kota++; div.innerHTML='<span>🟡</span> '+mzMaskele(arr[i])+' — kota dolu'; }
+    else if(durum==='yavas'){ yavas++; div.innerHTML='<span>🕓</span> '+mzMaskele(arr[i])+' — yanıt gecikti (tekrar dene)'; }
     else { gecersiz++; div.innerHTML='<span>🔴</span> '+mzMaskele(arr[i])+' — geçersiz'; }
   }
   const ozet=document.createElement('div'); ozet.style.cssText='font-weight:900; font-size:.84rem; margin-top:.5rem; padding:.5rem; background:#ecfdf5; border-radius:.6rem; color:#065f46; text-align:center;';
-  ozet.innerHTML='📊 '+calisan+' çalışıyor 🟢 · '+kota+' kota 🟡 · '+gecersiz+' geçersiz 🔴 <br>(toplam '+arr.length+' anahtar)'; box.appendChild(ozet);
+  ozet.innerHTML='📊 '+calisan+' çalışıyor 🟢 · '+kota+' kota 🟡'+(yavas?' · '+yavas+' gecikti 🕓':'')+' · '+gecersiz+' geçersiz 🔴 <br>(toplam '+arr.length+' anahtar)'
+    +(calisan>0?'<div style="color:#059669; margin-top:.3rem;">✅ '+calisan+' anahtar çalışıyor — herkeste AI açık!</div>':'<div style="color:#b45309; margin-top:.3rem;">⚠️ Çalışan anahtar yok — havuza yeni ücretsiz anahtar ekle.</div>');
+  box.appendChild(ozet);
 }
 function mzPanoKopyala(){ const t=anahtarlariAyikla(document.getElementById('mz-ortak').value).join('\n'); if(!t){ alert('Kopyalanacak anahtar yok.'); return; } navigator.clipboard.writeText(t).then(()=>alert('✓ '+anahtarlariAyikla(t).length+' anahtar panoya kopyalandı.')).catch(()=>alert('Kopyalanamadı.')); }
 async function mzPanoYapistir(){ try{ const t=await navigator.clipboard.readText(); const box=document.getElementById('mz-ortak'); let b=Array.from(new Set(anahtarlariAyikla(box.value+'\n'+t))); if(b.length>1000) b=b.slice(0,1000); box.value=b.join('\n'); mzOrtakListele(); alert('✓ Panodan eklendi. Havuzda toplam '+b.length+' anahtar. "Kaydet & Yayınla" demeyi unutma.'); }catch(e){ alert('Pano okunamadı. Anahtarları elle yapıştır.'); } }
@@ -2884,6 +2890,24 @@ async function surumKontrol(){
   if(yeni!==SURUM_DAMGA){ SURUM_BILDIRILDI=true; const b=document.getElementById('surum-banner'); if(b) b.style.display='flex'; }
 }
 function surumYenile(){ const u=location.href.split('#')[0].split('?')[0]+'?_r='+Date.now(); try{ location.replace(u); }catch(e){ location.reload(); } }
+
+/* ==================== KONFETİ (kutlama) ==================== */
+function konfeti(){
+  try{
+    const cv=document.createElement('canvas'); cv.style.cssText='position:fixed; inset:0; z-index:250; pointer-events:none;'; cv.width=innerWidth; cv.height=innerHeight; document.body.appendChild(cv);
+    const ctx=cv.getContext('2d'); const renk=['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#fbbf24','#06b6d4'];
+    const P=[]; for(let i=0;i<150;i++){ P.push({x:Math.random()*cv.width, y:-20-Math.random()*cv.height*0.4, r:5+Math.random()*8, c:renk[i%renk.length], vy:2.5+Math.random()*4.5, vx:-2.5+Math.random()*5, a:Math.random()*6.28, va:-0.25+Math.random()*0.5}); }
+    let t=0; (function anim(){ t++; ctx.clearRect(0,0,cv.width,cv.height); P.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.a+=p.va; p.vy+=0.04; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a); ctx.fillStyle=p.c; ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r*0.55); ctx.restore(); }); if(t<170) requestAnimationFrame(anim); else cv.remove(); })();
+  }catch(e){}
+}
+/* ==================== GÜNLÜK SERİ (streak) ==================== */
+function seriGuncelle(){
+  if(!AKTIF) return; AKTIF.seri=AKTIF.seri||{sayac:0,sonGun:''};
+  const g=new Date().toISOString().slice(0,10); const d=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  if(AKTIF.seri.sonGun===g){} else if(AKTIF.seri.sonGun===d){ AKTIF.seri.sayac=(AKTIF.seri.sayac||0)+1; AKTIF.seri.sonGun=g; }
+  else { AKTIF.seri.sayac=1; AKTIF.seri.sonGun=g; }
+  profKaydet();
+}
 async function surumElleDenetle(btn){
   const es=document.getElementById('ayar-surum'); const eski=btn.textContent; btn.textContent='⏳ Denetleniyor…';
   const yeni=await surumDamgasi();
