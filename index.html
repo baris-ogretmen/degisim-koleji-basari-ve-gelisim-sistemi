@@ -2463,29 +2463,25 @@ function mzOrtakTemizle(){ if(!confirm('Havuzdaki TÜM ortak anahtarlar silinsin
 async function mzHavuzTest(){
   const arr=anahtarlariAyikla(document.getElementById('mz-ortak').value); const box=document.getElementById('mz-havuz-test');
   if(!arr.length){ box.innerHTML='<div style="font-size:.76rem; color:#b45309; font-weight:800;">Önce havuza anahtar ekle.</div>'; return; }
-  box.innerHTML='<div style="font-size:.78rem; font-weight:900; color:#0369a1; margin-bottom:.4rem;">🔎 '+arr.length+' anahtar test ediliyor…</div>';
+  box.innerHTML='<div style="font-size:.78rem; font-weight:900; color:#0369a1; margin-bottom:.4rem;">🔎 '+arr.length+' anahtar aynı anda test ediliyor… (birkaç saniye)</div>';
   const liste=document.createElement('div'); box.appendChild(liste);
+  const satir=arr.map(k=>{ const d=document.createElement('div'); d.className='kh-item'; d.innerHTML='<span>⏳</span> '+mzMaskele(k); liste.appendChild(d); return d; });
   const model=modelSirasi()[0]||'gemini-2.5-flash-lite'; const m2=modelSirasi()[1];
-  function zamanAsimli(p,ms){ return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]); }
-  let calisan=0,kota=0,gecersiz=0,yavas=0;
-  for(let i=0;i<arr.length;i++){
-    const div=document.createElement('div'); div.className='kh-item'; div.innerHTML='<span>⏳</span> '+mzMaskele(arr[i]); liste.appendChild(div);
-    await new Promise(r=>setTimeout(r,15)); // arayüz nefes alsın
-    let durum='';
-    try{ await zamanAsimli(callGeminiRaw(arr[i],model,'OK',''),8000); durum='ok'; }
-    catch(e){ const em=String(e.message||'');
-      if(/timeout/i.test(em)) durum='yavas';
-      else if(/429|quota|RESOURCE/i.test(em)){ let alt=false; if(m2){ try{ await zamanAsimli(callGeminiRaw(arr[i],m2,'OK',''),8000); alt=true; }catch(_){ } } durum= alt?'ok':'kota'; }
-      else durum='invalid';
-    }
-    if(durum==='ok'){ calisan++; div.innerHTML='<span>🟢</span> '+mzMaskele(arr[i])+' — çalışıyor'; }
-    else if(durum==='kota'){ kota++; div.innerHTML='<span>🟡</span> '+mzMaskele(arr[i])+' — kota dolu'; }
-    else if(durum==='yavas'){ yavas++; div.innerHTML='<span>🕓</span> '+mzMaskele(arr[i])+' — yanıt gecikti (tekrar dene)'; }
-    else { gecersiz++; div.innerHTML='<span>🔴</span> '+mzMaskele(arr[i])+' — geçersiz'; }
+  function ta(p,ms){ return Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]); }
+  function tekTest(k){
+    return ta(callGeminiRaw(k,model,'OK',''),8000).then(()=>'ok').catch(e=>{
+      const em=String(e.message||'');
+      if(/timeout/i.test(em)) return 'yavas';
+      if(/429|quota|RESOURCE/i.test(em)){ if(m2) return ta(callGeminiRaw(k,m2,'OK',''),8000).then(()=>'ok').catch(e2=>/timeout/i.test(String(e2.message||''))?'yavas':'kota'); return 'kota'; }
+      return 'invalid';
+    });
   }
-  const ozet=document.createElement('div'); ozet.style.cssText='font-weight:900; font-size:.84rem; margin-top:.5rem; padding:.5rem; background:#ecfdf5; border-radius:.6rem; color:#065f46; text-align:center;';
-  ozet.innerHTML='📊 '+calisan+' çalışıyor 🟢 · '+kota+' kota 🟡'+(yavas?' · '+yavas+' gecikti 🕓':'')+' · '+gecersiz+' geçersiz 🔴 <br>(toplam '+arr.length+' anahtar)'
-    +(calisan>0?'<div style="color:#059669; margin-top:.3rem;">✅ '+calisan+' anahtar çalışıyor — herkeste AI açık!</div>':'<div style="color:#b45309; margin-top:.3rem;">⚠️ Çalışan anahtar yok — havuza yeni ücretsiz anahtar ekle.</div>');
+  const ik={ok:'🟢',kota:'🟡',yavas:'🕓',invalid:'🔴'}, et={ok:' — çalışıyor',kota:' — kota dolu',yavas:' — yanıt gecikti (tekrar dene)',invalid:' — geçersiz'};
+  const sonuc=await Promise.all(arr.map((k,i)=> tekTest(k).then(d=>{ satir[i].innerHTML='<span>'+ik[d]+'</span> '+mzMaskele(k)+et[d]; return d; }).catch(()=>{ satir[i].innerHTML='<span>🔴</span> '+mzMaskele(k)+' — hata'; return 'invalid'; })));
+  const say=x=>sonuc.filter(y=>y===x).length; const c=say('ok');
+  const ozet=document.createElement('div'); ozet.style.cssText='font-weight:900; font-size:.84rem; margin-top:.5rem; padding:.55rem; background:#ecfdf5; border-radius:.6rem; color:#065f46; text-align:center;';
+  ozet.innerHTML='📊 '+c+' çalışıyor 🟢 · '+say('kota')+' kota 🟡'+(say('yavas')?' · '+say('yavas')+' gecikti 🕓':'')+' · '+say('invalid')+' geçersiz 🔴<br>(toplam '+arr.length+' anahtar)'
+    +(c>0?'<div style="color:#059669; margin-top:.35rem; font-size:.9rem;">✅ '+c+' anahtar çalışıyor — <b>herkeste AI açık!</b></div>':'<div style="color:#b45309; margin-top:.35rem;">⚠️ Çalışan anahtar yok — havuza yeni ücretsiz anahtar ekle.</div>');
   box.appendChild(ozet);
 }
 function mzPanoKopyala(){ const t=anahtarlariAyikla(document.getElementById('mz-ortak').value).join('\n'); if(!t){ alert('Kopyalanacak anahtar yok.'); return; } navigator.clipboard.writeText(t).then(()=>alert('✓ '+anahtarlariAyikla(t).length+' anahtar panoya kopyalandı.')).catch(()=>alert('Kopyalanamadı.')); }
