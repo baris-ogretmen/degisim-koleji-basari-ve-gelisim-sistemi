@@ -234,17 +234,64 @@ body.has-disc .set-fab{ bottom:calc(11.4rem + env(safe-area-inset-bottom)); }
 .qr-fab,.key-fab,.set-fab{ display:flex; align-items:center; justify-content:center; touch-action:none; }
 .zx-fab{ position:absolute; top:-7px; right:-7px; width:1.3rem; height:1.3rem; border-radius:50%; background:#475569; color:#fff; border:2px solid #fff; font-size:.72rem; font-weight:900; display:flex; align-items:center; justify-content:center; cursor:pointer; line-height:1; z-index:2; }
 .zfab-dragging{ opacity:.85 !important; transform:scale(1.06); }
+.kalem-fab{ position:fixed; right:.7rem; bottom:calc(11.2rem + env(safe-area-inset-bottom)); z-index:66; width:3rem; height:3rem; border-radius:50%; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border:none; font-size:1.05rem; box-shadow:0 8px 22px rgba(124,58,237,.45); cursor:pointer; opacity:.92; display:flex; align-items:center; justify-content:center; }
+body.has-disc .kalem-fab{ bottom:calc(14.9rem + env(safe-area-inset-bottom)); }
+#kalem-katman{ position:fixed; inset:0; z-index:200; }
+#kalem-canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; cursor:crosshair; }
+#kalem-arac{ position:fixed; top:max(.6rem,env(safe-area-inset-top)); left:50%; transform:translateX(-50%); z-index:201; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; justify-content:center; background:rgba(15,23,42,.92); backdrop-filter:blur(8px); border:1px solid rgba(148,163,184,.35); border-radius:1rem; padding:.5rem .6rem; box-shadow:0 10px 30px rgba(0,0,0,.4); max-width:95vw; }
+.ka-renkler,.ka-boyutlar,.ka-islem{ display:flex; align-items:center; gap:.3rem; }
+.ka-renkler{ padding-right:.4rem; border-right:1px solid rgba(148,163,184,.3); }
+.ka-boyutlar{ padding-right:.4rem; border-right:1px solid rgba(148,163,184,.3); }
+.ka-renk{ width:1.7rem; height:1.7rem; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; }
+.ka-renk.sel{ border-color:#fff; transform:scale(1.12); }
+.ka-boy{ width:1.9rem; height:1.9rem; border-radius:.5rem; background:rgba(255,255,255,.12); color:#fff; border:2px solid transparent; cursor:pointer; font-size:.9rem; display:flex; align-items:center; justify-content:center; }
+.ka-boy.sel{ border-color:#a855f7; background:rgba(168,85,247,.3); }
+.ka-btn{ width:2rem; height:2rem; border-radius:.5rem; background:rgba(255,255,255,.12); color:#fff; border:none; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; }
+.ka-btn.ka-kapat{ background:#ef4444; }
+@media print{ #kalem-fab,#kalem-katman{ display:none !important; } }
 @media print{ html{ zoom:1 !important; } nav,header .hdr-actions,.ai-disc,.net-toast,#ekran-pill,.qr-fab,.key-fab{ display:none !important; } }
 .pill-tag{ display:inline-block; font-size:.62rem; font-weight:900; padding:.15rem .5rem; border-radius:.5rem; letter-spacing:.3px; }
 </style>
 </head>
 <body>
 
+<div id="surum-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:300; background:linear-gradient(135deg,#059669,#10b981); color:#fff; padding:max(.6rem,env(safe-area-inset-top)) 1rem .6rem; align-items:center; justify-content:center; gap:.6rem; font-weight:900; font-size:.86rem; box-shadow:0 4px 16px rgba(0,0,0,.28);">
+  <span>🔄 Yeni güncelleme yayınlandı!</span>
+  <button onclick="surumYenile()" style="background:#fff; color:#065f46; border:none; border-radius:.6rem; padding:.35rem .85rem; font-weight:900; cursor:pointer;">Şimdi Yenile</button>
+  <button onclick="document.getElementById('surum-banner').style.display='none'" style="background:rgba(255,255,255,.2); color:#fff; border:none; width:1.7rem; height:1.7rem; border-radius:50%; font-weight:900; cursor:pointer;">✕</button>
+</div>
 <div id="net-toast" class="net-toast off"><i class="fas fa-wifi"></i> <span id="net-toast-text">İnternet kesildi</span></div>
 <div id="ekran-pill" style="display:none;" onclick="ZIRVE_ekranTikla(event)" title="Ekran modu"><span id="ekran-label">📺 Oto</span><button class="zx" onclick="ZIRVE_ekranGizle(event)">×</button></div>
 <button class="qr-fab hidden" id="qr-fab" title="QR ile paylaş"><i class="fas fa-qrcode"></i><span class="zx-fab" data-fab="qr" title="Gizle">×</span></button>
 <button class="key-fab hidden" id="key-fab" title="Yapay Zekâ Anahtar Merkezi"><i class="fas fa-key"></i><span class="zx-fab" data-fab="key" title="Gizle">×</span></button>
 <button class="set-fab" id="set-fab" title="Ayarlar & Kurucu Paneli" style="display:none;"><i class="fas fa-gear"></i></button>
+<button class="kalem-fab" id="kalem-fab" title="Kalem — ekrana yaz/çiz" style="display:none;"><i class="fas fa-pen"></i></button>
+
+<!-- ============ KALEM (ÇİZİM KATMANI) ============ -->
+<div id="kalem-katman" style="display:none;">
+  <canvas id="kalem-canvas"></canvas>
+  <div id="kalem-arac">
+    <div class="ka-renkler">
+      <button class="ka-renk sel" style="background:#111827;" onclick="kalemRenk('#111827',this)"></button>
+      <button class="ka-renk" style="background:#ef4444;" onclick="kalemRenk('#ef4444',this)"></button>
+      <button class="ka-renk" style="background:#2563eb;" onclick="kalemRenk('#2563eb',this)"></button>
+      <button class="ka-renk" style="background:#059669;" onclick="kalemRenk('#059669',this)"></button>
+      <button class="ka-renk" style="background:#f59e0b;" onclick="kalemRenk('#f59e0b',this)"></button>
+      <button class="ka-renk" style="background:#7c3aed;" onclick="kalemRenk('#7c3aed',this)"></button>
+    </div>
+    <div class="ka-boyutlar">
+      <button class="ka-boy" onclick="kalemKalinlik(3,this)">•</button>
+      <button class="ka-boy sel" onclick="kalemKalinlik(6,this)">●</button>
+      <button class="ka-boy" onclick="kalemKalinlik(12,this)">⬤</button>
+      <button class="ka-boy" id="ka-silgi" onclick="kalemSilgi(this)" title="Silgi">🧽</button>
+    </div>
+    <div class="ka-islem">
+      <button class="ka-btn" onclick="kalemGeri()" title="Geri al">↶</button>
+      <button class="ka-btn" onclick="kalemTemizle()" title="Hepsini sil">🗑️</button>
+      <button class="ka-btn ka-kapat" onclick="kalemKapat()" title="Kapat">✕</button>
+    </div>
+  </div>
+</div>
 
 <div class="ai-disc" id="ai-disc">
   <i class="fas fa-triangle-exclamation w"></i>
@@ -360,7 +407,8 @@ body.has-disc .set-fab{ bottom:calc(11.4rem + env(safe-area-inset-bottom)); }
       <div class="hint" style="margin-top:.4rem;">Yalnızca Barış Öğretmen için: tüm okulda geçerli <b>Ortak AI Anahtarı</b> ve eğitim yılı buradan yönetilir.</div>
     </div>
     <div style="margin-top:1rem; border-top:1px solid #eef2f7; padding-top:.8rem;">
-      <div class="hint" style="margin:0;">Değişim Koleji · Gelişim & Başarı Sistemi · Anaokulundan 7. sınıfa · Barış Öğretmen</div>
+      <button class="btn btn-ghost btn-sm" style="width:100%; margin-bottom:.5rem;" onclick="surumElleDenetle(this)">🔄 Güncellemeleri Denetle</button>
+      <div class="hint" style="margin:0;">Değişim Koleji · Gelişim & Başarı Sistemi · Anaokulundan 7. sınıfa · Barış Öğretmen · <span id="ayar-surum"></span></div>
     </div>
   </div>
 </div>
@@ -865,7 +913,7 @@ const RICH='\n\nBİÇİM: <b> kalın, <i> italik, <h4> başlık, <ul><li> madde,
 function jsq(s){ return "'"+String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\r?\n/g,' ')+"'"; }
 
 /* ==================== AYARLAR MODAL ==================== */
-function ayarAc(){ const m=document.getElementById('ayar-modal'); document.getElementById('ayar-keys').value=(RING.keys||[]).join('\n'); document.getElementById('ayar-model').value=SETTINGS.model||''; document.getElementById('ayar-sonuc').innerHTML=''; document.getElementById('kh-panel').innerHTML=''; zFabPanelCiz(); m.classList.add('open'); }
+function ayarAc(){ const m=document.getElementById('ayar-modal'); document.getElementById('ayar-keys').value=(RING.keys||[]).join('\n'); document.getElementById('ayar-model').value=SETTINGS.model||''; document.getElementById('ayar-sonuc').innerHTML=''; document.getElementById('kh-panel').innerHTML=''; var sv=document.getElementById('ayar-surum'); if(sv) sv.textContent='v'+APP_SURUM; zFabPanelCiz(); m.classList.add('open'); }
 function ayarKapat(){ document.getElementById('ayar-modal').classList.remove('open'); }
 function ayarKaydet(){
   const keys=anahtarlariAyikla(document.getElementById('ayar-keys').value);
@@ -1291,6 +1339,13 @@ function renderCalis(){
     +'<p style="font-weight:700; font-size:.85rem; opacity:.95; line-height:1.5; margin:0;">'+(gelisim
       ?'Bir gelişim alanı seç. Sistem, çocuğun için <b>evde yapılabilecek</b> eğlenceli etkinlikler ve veliye rehber hazırlar. Güçlü alanları daha da parlatır, filizlenen alanları destekler.'
       :'Ders seç → konu seç. İki hat var: <b>🚀 Güçlü yönünü uçur</b> (zenginleştirme, ileri sorular) ve <b>🌱 destek</b> (temelden pekiştirme). Sen seç, hangisi bugün sana iyi gelir.')+'</p></div>';
+  if(!gelisim){
+    h+='<div class="card" style="border:2px solid #6366f1;"><h3 style="color:#4338ca;"><i class="fas fa-file-pen"></i> Deneme Çöz</h3>'
+      +'<p style="font-size:.82rem; font-weight:700; color:#475569; margin:0 0 .6rem; line-height:1.5;">Gerçek sınav gibi! Tek derse odaklan ya da tüm derslerden <b>karışık</b> bir deneme çöz — puanını gör.</p>'
+      +'<div class="row2"><button class="btn btn-primary btn-sm" style="width:100%;" onclick="denemeDersSec()">📚 Ders Bazlı</button>'
+      +'<button class="btn btn-emerald btn-sm" style="width:100%;" onclick="denemeBaslat(\'karisik\')">🎲 Karışık Deneme</button></div>'
+      +'<div id="deneme-ders-sec" style="margin-top:.5rem;"></div></div>';
+  }
   h+='<div id="calis-liste"></div>';
   el.innerHTML=h; calisListe();
 }
@@ -1403,6 +1458,31 @@ async function etkinlikUret(dk){
 
 /* ==================== QUIZ (akademik) ==================== */
 function testZorBaslat(dk, konu, z){ QUIZ_ZORLUK=z; testBaslat(dk, null, konu); }
+const DENEME_DERSLER=['tur','mat','fen','sb','ing','din','hb','bit'];
+function denemeDersSec(){
+  const box=document.getElementById('deneme-ders-sec'); if(!box) return;
+  box.innerHTML='<div style="display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.3rem;">'+DERSLER_AKTIF().filter(d=>DENEME_DERSLER.indexOf(d.key)!==-1).map(d=>'<button class="stu-chip" style="margin:0;" onclick="denemeBaslat(\'ders\','+jsq(d.key)+')">'+d.emoji+' '+d.ad+'</button>').join('')+'</div>';
+}
+async function denemeBaslat(mod, dk){
+  if(!requireKey()) return;
+  gorunum('quiz'); const v=document.getElementById('view-quiz');
+  const dersler = (mod==='ders'&&dk) ? [DERS_GET(dk)] : DERSLER_AKTIF().filter(d=>DENEME_DERSLER.indexOf(d.key)!==-1);
+  const baslik = (mod==='ders'&&dk) ? (DERS_GET(dk).ad+' Denemesi') : 'Karışık Deneme';
+  v.innerHTML='<div class="card" style="text-align:center;"><div class="big-emoji" style="animation:bob 1.2s ease-in-out infinite;">📝</div><h3 style="justify-content:center;">'+baslik+'</h3><p style="font-weight:800; color:#4338ca;">📚 Deneme hazırlanıyor…</p><div class="typing" style="justify-content:center;"><span></span><span></span><span></span></div><div style="font-size:.76rem;font-weight:800;color:#94a3b8;margin-top:.3rem;">Neredeyse bitti ✨</div></div>';
+  const konuKeys='('+DERSLER_AKTIF().map(d=>d.key+'='+d.ad).join(', ')+')';
+  const soruSay = (mod==='ders')?12:15;
+  const dersMetni = dersler.map(d=>d.ad+' [konular: '+(KONU(d.key)||[]).slice(0,6).join(', ')+']').join(' | ');
+  const sys='Sen Değişim Koleji ölçme-değerlendirme uzmanısın ('+seviyeMetni()+'). Maarif müfredatına uygun, YAŞA UYGUN, 4 şıklı (A-D), tek doğru, ORTA zorlukta deneme soruları yaz. Konuları KARIŞIK dağıt. Her soruya "ders" (kısaltma) ekle. "dogru"=0-3 index, iki kez kontrol et, yanlış işaretleme. Çıktın SADECE JSON.';
+  try{
+    const arr=await callJSON(seviyeMetni()+' için '+baslik+': şu ders/konulardan KARIŞIK '+soruSay+' soru üret → '+dersMetni+'. Ders kısaltmaları: '+konuKeys+'. Format: [{"q":"...","secenekler":["A","B","C","D"],"dogru":0,"cozum":"...","ders":"mat","konu":"..."}].', sys);
+    if(!Array.isArray(arr)||!arr.length) throw new Error('Bos yanit');
+    const list=arr.filter(x=>x&&x.q&&Array.isArray(x.secenekler)&&x.secenekler.length>=4).map(x=>{ x.dogru=Math.max(0,Math.min(3,parseInt(x.dogru)||0)); return x; });
+    if(!list.length) throw new Error('Bos yanit');
+    QUIZ={ list, i:0, dogru:0, ders:(list[0]&&list[0].ders)||dersler[0].key, konu:baslik, zorluk:'orta', track:'orta', deneme:true, denemeMod:mod, denemeDk:dk||'' };
+    AKTIF.rozetMeta.cozulen=(AKTIF.rozetMeta.cozulen||0)+list.length; profKaydet();
+    quizGoster();
+  }catch(e){ v.innerHTML='<div class="card"><div class="warn-box">'+hataCevir(e)+'</div><button class="btn btn-ghost" onclick="git(\'calis\')">← Çalışma</button> <button class="btn btn-emerald" style="margin-top:.5rem;" onclick="denemeBaslat('+jsq(mod)+','+(dk?jsq(dk):'null')+')">Tekrar Dene</button></div>'; }
+}
 function testBaslat(dk, zorlukZorla, konuZorla){
   if(!requireKey()) return;
   const d=DERS_GET(dk); const konu=konuZorla||(document.getElementById('konu-'+dk)?document.getElementById('konu-'+dk).value:KONU(dk)[0]);
@@ -1486,7 +1566,7 @@ function quizBitir(){
     +'<h3 style="justify-content:center;">'+d+' / '+t+' doğru (%'+pct+')</h3>'
     +'<p style="font-weight:700; color:#475569;">'+mesaj+'</p>'
     +'<div class="row2" style="margin-top:1rem;"><button class="btn btn-ghost" onclick="git(\''+(QUIZ.kisisel?'defter':'calis')+'\')">← '+(QUIZ.kisisel?'Defterim':'Çalışma')+'</button>'
-    +'<button class="btn btn-emerald" onclick="'+(QUIZ.kisisel?'kisiselTestBaslat()':('testBaslat('+jsq(QUIZ.ders)+',null,'+jsq(QUIZ.konu)+')'))+'">Yeni Test</button></div>'
+    +'<button class="btn btn-emerald" onclick="'+(QUIZ.deneme?('denemeBaslat('+jsq(QUIZ.denemeMod)+','+(QUIZ.denemeDk?jsq(QUIZ.denemeDk):'null')+')'):(QUIZ.kisisel?'kisiselTestBaslat()':('testBaslat('+jsq(QUIZ.ders)+',null,'+jsq(QUIZ.konu)+')')))+'">'+(QUIZ.deneme?'🎲 Yeni Deneme':'Yeni Test')+'</button></div>'
     +(Object.keys(AKTIF.hatalar).length?'<button class="btn btn-primary" style="margin-top:.6rem;" onclick="git(\'defter\')"><i class="fas fa-book-bookmark mr-1"></i> Defterime bak</button>':'')+'</div>';
   profKaydet();
 }
@@ -2381,15 +2461,26 @@ function mzOrtakTemizle(){ if(!confirm('Havuzdaki TÜM ortak anahtarlar silinsin
 async function mzHavuzTest(){
   const arr=anahtarlariAyikla(document.getElementById('mz-ortak').value); const box=document.getElementById('mz-havuz-test');
   if(!arr.length){ box.innerHTML='<div style="font-size:.76rem; color:#b45309; font-weight:800;">Önce havuza anahtar ekle.</div>'; return; }
-  let calisan=0,kota=0,gecersiz=0; box.innerHTML='';
+  box.innerHTML='<div style="font-size:.78rem; font-weight:900; color:#0369a1; margin-bottom:.4rem;">🔎 '+arr.length+' anahtar test ediliyor… (birkaç saniye)</div>';
+  const liste=document.createElement('div'); box.appendChild(liste);
+  const model=modelSirasi()[0]||'gemini-2.5-flash-lite';
+  let calisan=0,kota=0,gecersiz=0;
   for(let i=0;i<arr.length;i++){
-    const div=document.createElement('div'); div.className='kh-item'; div.innerHTML='<span>⏳</span> '+mzMaskele(arr[i])+' test ediliyor…'; box.appendChild(div);
-    let ok=false,kt=false; for(const m of modelSirasi()){ try{ await callGeminiRaw(arr[i],m,'Sadece OK yaz.',''); ok=true; break; }catch(e){ if(/429|quota|RESOURCE/i.test(String(e.message||''))) kt=true; } }
-    if(ok){ calisan++; div.innerHTML='<span>🟢</span> '+mzMaskele(arr[i])+' — çalışıyor'; }
-    else if(kt){ kota++; div.innerHTML='<span>🟡</span> '+mzMaskele(arr[i])+' — kota dolu'; }
+    const div=document.createElement('div'); div.className='kh-item'; div.innerHTML='<span>⏳</span> '+mzMaskele(arr[i]); liste.appendChild(div);
+    let durum='';
+    try{ await callGeminiRaw(arr[i],model,'OK',''); durum='ok'; }
+    catch(e){ const em=String(e.message||'');
+      if(/429|quota|RESOURCE/i.test(em)){ // flash-lite doluysa 1 alternatif model dene
+        let alt=false; const m2=modelSirasi()[1]; if(m2){ try{ await callGeminiRaw(arr[i],m2,'OK',''); alt=true; }catch(_){ } }
+        durum= alt?'ok':'kota';
+      } else durum='invalid';
+    }
+    if(durum==='ok'){ calisan++; div.innerHTML='<span>🟢</span> '+mzMaskele(arr[i])+' — çalışıyor'; }
+    else if(durum==='kota'){ kota++; div.innerHTML='<span>🟡</span> '+mzMaskele(arr[i])+' — kota dolu'; }
     else { gecersiz++; div.innerHTML='<span>🔴</span> '+mzMaskele(arr[i])+' — geçersiz'; }
   }
-  const ozet=document.createElement('div'); ozet.style.cssText='font-weight:900; font-size:.82rem; margin-top:.4rem; color:#065f46;'; ozet.innerHTML='📊 '+calisan+' çalışıyor 🟢 · '+kota+' kota dolu 🟡 · '+gecersiz+' geçersiz 🔴 (toplam '+arr.length+')'; box.appendChild(ozet);
+  const ozet=document.createElement('div'); ozet.style.cssText='font-weight:900; font-size:.84rem; margin-top:.5rem; padding:.5rem; background:#ecfdf5; border-radius:.6rem; color:#065f46; text-align:center;';
+  ozet.innerHTML='📊 '+calisan+' çalışıyor 🟢 · '+kota+' kota 🟡 · '+gecersiz+' geçersiz 🔴 <br>(toplam '+arr.length+' anahtar)'; box.appendChild(ozet);
 }
 function mzPanoKopyala(){ const t=anahtarlariAyikla(document.getElementById('mz-ortak').value).join('\n'); if(!t){ alert('Kopyalanacak anahtar yok.'); return; } navigator.clipboard.writeText(t).then(()=>alert('✓ '+anahtarlariAyikla(t).length+' anahtar panoya kopyalandı.')).catch(()=>alert('Kopyalanamadı.')); }
 async function mzPanoYapistir(){ try{ const t=await navigator.clipboard.readText(); const box=document.getElementById('mz-ortak'); let b=Array.from(new Set(anahtarlariAyikla(box.value+'\n'+t))); if(b.length>1000) b=b.slice(0,1000); box.value=b.join('\n'); mzOrtakListele(); alert('✓ Panodan eklendi. Havuzda toplam '+b.length+' anahtar. "Kaydet & Yayınla" demeyi unutma.'); }catch(e){ alert('Pano okunamadı. Anahtarları elle yapıştır.'); } }
@@ -2724,6 +2815,7 @@ function zFabGoster(key,fabId){ try{ localStorage.removeItem(zGizKey(key)); }cat
 function ZIRVE_fabBaslat(){
   const set=document.getElementById('set-fab'), key=document.getElementById('key-fab'), qr=document.getElementById('qr-fab');
   if(set){ set.style.display='flex'; suruklenebilir(set,'set',()=>ayarAc()); }
+  var kalem=document.getElementById('kalem-fab'); if(kalem){ kalem.style.display='flex'; suruklenebilir(kalem,'kalem',()=>kalemAc()); }
   if(key){ suruklenebilir(key,'key',()=>anahtarMerkeziAc()); if(zFabGizliMi('key')) key.style.display='none'; }
   if(qr){ suruklenebilir(qr,'qr',()=>qrAc()); }
   document.querySelectorAll('.zx-fab').forEach(x=>{ x.addEventListener('click',function(e){ e.stopPropagation(); e.preventDefault(); zFabGizle(x.getAttribute('data-fab')); }); });
@@ -2743,16 +2835,73 @@ function zFabPanelCiz(){
 }
 function zKonumSifirla(){ ['set','key','qr'].forEach(k=>{ try{ localStorage.removeItem(zPosKey(k)); }catch(e){} }); zToast('Konumlar sıfırlandı, yenileniyor...'); setTimeout(()=>location.reload(),700); }
 
+/* ==================== KALEM (ekrana çizim — akıllı tahta/telefon) ==================== */
+var KALEM={ renk:'#111827', boyut:6, silgiMi:false, ciziyor:false, ctx:null, cv:null, gecmis:[], sonX:0, sonY:0 };
+function kalemBoyutla(){
+  const cv=KALEM.cv; if(!cv) return; const dpr=window.devicePixelRatio||1;
+  const eski=KALEM.ctx? KALEM.ctx.getImageData(0,0,cv.width,cv.height):null;
+  cv.width=Math.floor(innerWidth*dpr); cv.height=Math.floor(innerHeight*dpr);
+  const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr); ctx.lineCap='round'; ctx.lineJoin='round'; KALEM.ctx=ctx;
+  if(eski){ try{ ctx.putImageData(eski,0,0); }catch(e){} }
+}
+function kalemAc(){
+  const kat=document.getElementById('kalem-katman'); KALEM.cv=document.getElementById('kalem-canvas');
+  kat.style.display='block'; kalemBoyutla();
+  const cv=KALEM.cv;
+  cv.onpointerdown=function(e){ e.preventDefault(); kalemAnlik(); KALEM.ciziyor=true; const r=cv.getBoundingClientRect(); KALEM.sonX=e.clientX-r.left; KALEM.sonY=e.clientY-r.top; try{cv.setPointerCapture(e.pointerId);}catch(_){} };
+  cv.onpointermove=function(e){ if(!KALEM.ciziyor) return; e.preventDefault(); const r=cv.getBoundingClientRect(); const x=e.clientX-r.left,y=e.clientY-r.top; const ctx=KALEM.ctx;
+    ctx.globalCompositeOperation = KALEM.silgiMi?'destination-out':'source-over';
+    ctx.strokeStyle=KALEM.renk; ctx.lineWidth=KALEM.silgiMi?KALEM.boyut*4:KALEM.boyut;
+    ctx.beginPath(); ctx.moveTo(KALEM.sonX,KALEM.sonY); ctx.lineTo(x,y); ctx.stroke(); KALEM.sonX=x; KALEM.sonY=y; };
+  cv.onpointerup=cv.onpointercancel=function(){ KALEM.ciziyor=false; };
+  window.addEventListener('resize', kalemBoyutla);
+}
+function kalemKapat(){ document.getElementById('kalem-katman').style.display='none'; window.removeEventListener('resize', kalemBoyutla); }
+function kalemAnlik(){ try{ const cv=KALEM.cv; KALEM.gecmis.push(KALEM.ctx.getImageData(0,0,cv.width,cv.height)); if(KALEM.gecmis.length>18) KALEM.gecmis.shift(); }catch(e){} }
+function kalemRenk(c,btn){ KALEM.renk=c; KALEM.silgiMi=false; document.querySelectorAll('#kalem-arac .ka-renk').forEach(b=>b.classList.remove('sel')); if(btn) btn.classList.add('sel'); const sg=document.getElementById('ka-silgi'); if(sg) sg.classList.remove('sel'); }
+function kalemKalinlik(n,btn){ KALEM.boyut=n; KALEM.silgiMi=false; document.querySelectorAll('#kalem-arac .ka-boy').forEach(b=>b.classList.remove('sel')); if(btn) btn.classList.add('sel'); }
+function kalemSilgi(btn){ KALEM.silgiMi=true; document.querySelectorAll('#kalem-arac .ka-boy').forEach(b=>b.classList.remove('sel')); if(btn) btn.classList.add('sel'); }
+function kalemGeri(){ if(!KALEM.gecmis.length) return; const img=KALEM.gecmis.pop(); try{ KALEM.ctx.putImageData(img,0,0); }catch(e){} }
+function kalemTemizle(){ const cv=KALEM.cv; if(cv&&KALEM.ctx){ kalemAnlik(); KALEM.ctx.clearRect(0,0,cv.width,cv.height); } }
+
+/* ==================== OTOMATİK GÜNCELLEME KONTROLÜ (eski sürüm kalmasın) ==================== */
+const APP_SURUM='2026-09-25';
+var SURUM_DAMGA=null, SURUM_BILDIRILDI=false;
+async function surumDamgasi(){
+  try{
+    const url=location.href.split('#')[0].split('?')[0]+'?_v='+Date.now();
+    let r; try{ r=await fetch(url,{method:'HEAD',cache:'no-store'}); }catch(e){ r=null; }
+    if(!r||!r.ok){ try{ r=await fetch(url,{cache:'no-store'}); }catch(e){ return null; } }
+    if(!r||!r.ok) return null;
+    return r.headers.get('etag')||r.headers.get('last-modified')||null;
+  }catch(e){ return null; }
+}
+async function surumBaslat(){ if(location.protocol.indexOf('http')!==0) return; SURUM_DAMGA=await surumDamgasi(); }
+async function surumKontrol(){
+  if(SURUM_BILDIRILDI || location.protocol.indexOf('http')!==0) return;
+  const yeni=await surumDamgasi(); if(!yeni) return;
+  if(!SURUM_DAMGA){ SURUM_DAMGA=yeni; return; }
+  if(yeni!==SURUM_DAMGA){ SURUM_BILDIRILDI=true; const b=document.getElementById('surum-banner'); if(b) b.style.display='flex'; }
+}
+function surumYenile(){ const u=location.href.split('#')[0].split('?')[0]+'?_r='+Date.now(); try{ location.replace(u); }catch(e){ location.reload(); } }
+async function surumElleDenetle(btn){
+  const es=document.getElementById('ayar-surum'); const eski=btn.textContent; btn.textContent='⏳ Denetleniyor…';
+  const yeni=await surumDamgasi();
+  if(yeni && SURUM_DAMGA && yeni!==SURUM_DAMGA){ btn.textContent='🔄 Yeni sürüm var!'; const b=document.getElementById('surum-banner'); if(b) b.style.display='flex'; }
+  else { btn.textContent='✅ Güncel'; if(yeni&&!SURUM_DAMGA) SURUM_DAMGA=yeni; setTimeout(()=>{ btn.textContent=eski; },2000); }
+}
+
 
 /* ==================== BAŞLAT ==================== */
 window.onload=function(){
   loadSettings(); ringLoad(); initPWA(); keyFabGoster(); updateStatusDot(); populateModels();
   ZIRVE_merkezYukle();
   // Yönetici yeni anahtar yayınlayınca AÇIK cihazlar (öğrenci/veli) sekmeye dönünce taze çeker — yeniden giriş gerekmez
-  var _mSon=0; function _merkezReSync(){ var now=Date.now(); if(now-_mSon<15000) return; _mSon=now; try{ ZIRVE_merkezYukle(); }catch(e){} }
+  var _mSon=0; function _merkezReSync(){ var now=Date.now(); if(now-_mSon<15000) return; _mSon=now; try{ ZIRVE_merkezYukle(); }catch(e){} try{ surumKontrol(); }catch(e){} }
   document.addEventListener('visibilitychange', function(){ if(!document.hidden) _merkezReSync(); });
   window.addEventListener('focus', _merkezReSync);
   setInterval(_merkezReSync, 120000);
+  try{ surumBaslat(); }catch(e){}
   renderLoginKademe();
   document.getElementById('ayar-modal').addEventListener('click', e=>{ if(e.target.id==='ayar-modal') ayarKapat(); });
   document.getElementById('qr-modal').addEventListener('click', e=>{ if(e.target.id==='qr-modal') qrKapat(); });
