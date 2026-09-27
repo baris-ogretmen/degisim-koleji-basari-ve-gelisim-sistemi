@@ -200,6 +200,7 @@ nav::-webkit-scrollbar{ display:none; }
 .ai-body{ padding:1rem; }
 .typing{ display:flex; gap:.35rem; padding:.5rem; } .typing span{ width:.6rem; height:.6rem; border-radius:50%; background:#94a3b8; animation:tp 1s infinite; } .typing span:nth-child(2){ animation-delay:.15s; } .typing span:nth-child(3){ animation-delay:.3s; }
 @keyframes tp{ 0%,60%,100%{ opacity:.3; transform:translateY(0);} 30%{ opacity:1; transform:translateY(-4px);} }
+@keyframes surumNabiz{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.06);} }
 @keyframes bob{ 0%,100%{ transform:translateY(0) rotate(-3deg);} 50%{ transform:translateY(-8px) rotate(3deg);} }
 
 /* Modal */
@@ -255,10 +256,9 @@ body.has-disc .kalem-fab{ bottom:calc(14.9rem + env(safe-area-inset-bottom)); }
 </head>
 <body>
 
-<div id="surum-banner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:300; background:linear-gradient(135deg,#059669,#10b981); color:#fff; padding:max(.6rem,env(safe-area-inset-top)) 1rem .6rem; align-items:center; justify-content:center; gap:.6rem; font-weight:900; font-size:.86rem; box-shadow:0 4px 16px rgba(0,0,0,.28);">
-  <span>🔄 Yeni güncelleme yayınlandı!</span>
-  <button onclick="surumYenile()" style="background:#fff; color:#065f46; border:none; border-radius:.6rem; padding:.35rem .85rem; font-weight:900; cursor:pointer;">Şimdi Yenile</button>
-  <button onclick="document.getElementById('surum-banner').style.display='none'" style="background:rgba(255,255,255,.2); color:#fff; border:none; width:1.7rem; height:1.7rem; border-radius:50%; font-weight:900; cursor:pointer;">✕</button>
+<div id="surum-banner" style="display:none; position:fixed; top:calc(.6rem + env(safe-area-inset-top)); right:.6rem; z-index:300; align-items:center; gap:.35rem; animation:surumNabiz 1.6s ease-in-out infinite;">
+  <button onclick="surumYenile()" style="background:linear-gradient(135deg,#dc2626,#ef4444); color:#fff; border:2px solid #fff; border-radius:2rem; padding:.55rem .95rem; font-weight:900; font-size:.82rem; cursor:pointer; box-shadow:0 8px 24px rgba(220,38,38,.55); display:flex; align-items:center; gap:.4rem;">🔴 Yeni sürüm yayınlandı · <u>Yenile</u></button>
+  <button onclick="document.getElementById('surum-banner').style.display='none'" title="Kapat" style="background:#7f1d1d; color:#fff; border:2px solid #fff; width:1.8rem; height:1.8rem; border-radius:50%; font-weight:900; cursor:pointer; font-size:.75rem;">✕</button>
 </div>
 <div id="net-toast" class="net-toast off"><i class="fas fa-wifi"></i> <span id="net-toast-text">İnternet kesildi</span></div>
 <div id="ekran-pill" style="display:none;" onclick="ZIRVE_ekranTikla(event)" title="Ekran modu"><span id="ekran-label">📺 Oto</span><button class="zx" onclick="ZIRVE_ekranGizle(event)">×</button></div>
@@ -806,22 +806,36 @@ async function callGeminiRaw(key, model, prompt, system){
   const txt=c&&c.content&&c.content.parts&&c.content.parts.map(p=>p.text||'').join('')||'';
   if(!txt.trim()) throw new Error('Bos yanit'); return txt;
 }
+/* ---- Akıllı anahtar sıralama: kotası dolan en alta, taze olan üste ---- */
+const KOTA_SURE=60*60*1000; // 60 dk dinlendir
+function kotaHarita(){ try{ return JSON.parse(localStorage.getItem('dk_okul_kota')||'{}'); }catch(e){ return {}; } }
+function kotaKaydet(h){ try{ localStorage.setItem('dk_okul_kota',JSON.stringify(h)); }catch(e){} }
+function kotaIsaretle(k){ const h=kotaHarita(); h[k.slice(-10)]=Date.now(); kotaKaydet(h); }
+function kotaTemizle(k){ const h=kotaHarita(); if(h[k.slice(-10)]){ delete h[k.slice(-10)]; kotaKaydet(h); } }
+function anahtarSirala(list){
+  const h=kotaHarita(), now=Date.now(), taze=[], dolu=[];
+  list.forEach(k=>{ const t=h[k.slice(-10)]; if(t && now-t<KOTA_SURE) dolu.push({k,t}); else taze.push(k); });
+  for(let i=taze.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const x=taze[i]; taze[i]=taze[j]; taze[j]=x; }
+  dolu.sort((a,b)=>a.t-b.t); // en eski dolan önce (kotası açılmış olabilir)
+  return taze.concat(dolu.map(x=>x.k));
+}
 async function callText(prompt, system){
   if(!hasKey()) throw new Error('Anahtar yok');
   await ensureModels(); await rlBekle();
   const sysF = (system||'') + ogrenmeProfilSys();
   const modeller=modelSirasi();
-  let keys=aktifKeys().slice();
-  if(keys.length>1){ for(let i=keys.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=keys[i]; keys[i]=keys[j]; keys[j]=t; } } // rastgele sıra → kota dağıtımı
+  const keys=anahtarSirala(aktifKeys()); // taze anahtarlar üstte (rastgele), kotası dolanlar en altta
   let sonHata=null, hepsi429=true, denendi=0;
   for(const key of keys){
+    let buAnahtar429=true;
     for(const m of modeller){
       denendi++;
-      try{ const r=await callGeminiRaw(key,m,prompt,sysF); return r; }
+      try{ const r=await callGeminiRaw(key,m,prompt,sysF); kotaTemizle(key); return r; }
       catch(e){ sonHata=e; const em=String(e.message||'');
-        if(!/429|RESOURCE_EXHAUSTED|quota/i.test(em)){ hepsi429=false; }
+        if(!/429|RESOURCE_EXHAUSTED|quota/i.test(em)){ hepsi429=false; buAnahtar429=false; }
         /* 429 olsa da diğer modeli/anahtarı dene — flash dolu ama flash-lite boş olabilir */ }
     }
+    if(buAnahtar429) kotaIsaretle(key); // tüm modellerde 429 → bu anahtarı en alta at
   }
   if(hepsi429 && denendi>0) throw new Error('TUM_DOLU'); throw sonHata||new Error('Bilinmeyen hata');
 }
@@ -1561,6 +1575,7 @@ function quizSonraki(){ QUIZ.i++; if(QUIZ.i<QUIZ.list.length) quizGoster(); else
 function quizBitir(){
   const v=document.getElementById('view-quiz'); const t=QUIZ.list.length, d=QUIZ.dogru, pct=t?Math.round(d/t*100):0;
   if(pct>=80){ try{ konfeti(); }catch(e){} }
+  try{ AKTIF.testGecmis=AKTIF.testGecmis||[]; AKTIF.testGecmis.push({ tarih:new Date().toISOString(), ders:QUIZ.ders||'', konu:QUIZ.konu||'', zorluk:QUIZ.zorluk||'', tur:(QUIZ.deneme?'deneme':(QUIZ.kisisel?'kisisel':'test')), dogru:d, toplam:t, yuzde:pct }); if(AKTIF.testGecmis.length>300) AKTIF.testGecmis=AKTIF.testGecmis.slice(-300); profKaydet(); }catch(e){}
   let mesaj;
   if(QUIZ.track==='guc') mesaj=pct>=80?'Muhteşem! 🚀 Güçlü yönün gerçekten parlıyor. Bu tempoda bir üst seviyeye hazırsın.':pct>=50?'Çok iyi! 💪 Zorlu sorularda böyle sonuç, potansiyelinin göstergesi.':'Zorlu sorulardı 🌟 Bunları denemen bile büyük cesaret. Anlatımı bir kez daha oku, tekrar dene.';
   else mesaj=pct>=80?'Harika! 🎉 Bu konuyu neredeyse çözdün.':pct>=50?'İyi gidiyor 💪 Yanlışlarını defterinden tekrar et.':'Panik yok 🌱 Anlatımı tekrar oku, sonra yeniden dene. Her tekrar seni büyütür.';
@@ -1624,6 +1639,38 @@ async function bilsemUret(alanK){
 
 /* ---- Bursluluk / İOKBS (5-6-7. sınıf) ---- */
 function burslulukDersleri(){ return DERSLER_AKTIF().filter(d=>['tur','mat','fen','sb','ing','din'].indexOf(d.key)!==-1); }
+
+/* ==================== KOLEJ BURSLULUK SINAVLARI (sınıf seviyesine göre) ==================== */
+const KOLEJ_BURSLULUK=[
+  {ad:'MEB İOKBS (Devlet Bursluluğu)', emoji:'🇹🇷', not:'Devlet parasız yatılılık ve bursluluk sınavı', sinif:['5','6','7'], resmi:true},
+  {ad:'TED Kolejleri', emoji:'🎓', not:'Türkiye geneli kampüsler'},
+  {ad:'Bahçeşehir Koleji', emoji:'🏫', not:'Türkiye geneli kampüsler'},
+  {ad:'Doğa Koleji', emoji:'🌿', not:'Türkiye geneli kampüsler'},
+  {ad:'Final Okulları', emoji:'🏁', not:'Türkiye geneli kampüsler'},
+  {ad:'Okyanus Koleji', emoji:'🌊', not:'Türkiye geneli kampüsler'},
+  {ad:'Uğur Okulları', emoji:'⭐', not:'Türkiye geneli kampüsler'},
+  {ad:'Sınav Koleji', emoji:'📘', not:'Türkiye geneli kampüsler'},
+  {ad:'Nesibe Aydın Okulları', emoji:'🏛️', not:'Ankara ve çevresi'},
+  {ad:'FMV Işık Okulları', emoji:'💡', not:'İstanbul/İzmir kampüsleri'},
+  {ad:'Birey Koleji', emoji:'🧩', not:'Türkiye geneli kampüsler'}
+];
+function kolejBurslulukHTML(){
+  const kk=K(); const sn=AKTIF.kademe; const sinifAd=kk.ad;
+  const liste=KOLEJ_BURSLULUK.filter(c=>!c.sinif || c.sinif.indexOf(sn)!==-1);
+  let h='<div class="card" style="border:2px solid #f59e0b;"><h3 style="color:#b45309;"><i class="fas fa-building-columns"></i> '+sinifAd+' için Bursluluk Sınavı Yapan Kolejler</h3>'
+    +'<p style="font-size:.8rem; font-weight:700; color:#475569; margin:0 0 .6rem; line-height:1.5;">Türkiye\'de bursluluk sınavı düzenleyen başlıca okullar. Dokun → <b>'+sinifAd+'</b> için güncel başvuru sayfasını ara; ya da o sınav tarzında <b>deneme çöz</b>.</p>';
+  liste.forEach(c=>{
+    const q=c.ad+' bursluluk sınavı '+new Date().getFullYear()+' '+(sn.match(/^\d$/)?sn+'. sınıf':'')+' başvuru';
+    h+='<div style="display:flex; align-items:center; gap:.55rem; padding:.55rem .3rem; border-bottom:1px dashed #fde68a;">'
+      +'<div style="font-size:1.4rem;">'+c.emoji+'</div>'
+      +'<div style="flex:1;"><div style="font-weight:900; font-size:.86rem; color:#1e293b;">'+c.ad+(c.resmi?' <span class="pill-tag" style="background:#dcfce7; color:#166534;">resmî</span>':'')+'</div><div style="font-size:.68rem; font-weight:700; color:#94a3b8;">'+c.not+'</div></div>'
+      +'<button class="stu-chip" style="margin:0; padding:.3rem .55rem;" onclick="acLink(\'https://www.google.com/search?q=\'+encodeURIComponent('+jsq(q)+'))">🔗 Başvuru</button>'
+      +'<button class="stu-chip" style="margin:0; padding:.3rem .55rem; background:#fffbeb; border-color:#fcd34d;" onclick="denemeBaslat(\'karisik\')">📝 Deneme</button></div>';
+  });
+  h+='<div class="warn-box" style="margin:.7rem 0 0; font-size:.74rem;">ℹ️ Sınav tarihleri, sınıf aralıkları ve burs oranları <b>her yıl değişir</b>; başvurmadan önce kolejin resmî sitesinden teyit et. Liste bilgilendirme amaçlıdır, reklam değildir.</div>'
+    +'<button class="btn btn-gold btn-sm" style="width:100%; margin-top:.6rem;" onclick="denemeBaslat(\'karisik\')">🏅 Bursluluk Tarzı Karışık Deneme Çöz</button></div>';
+  return h;
+}
 function renderBursluluk(){
   const el=document.getElementById('view-sinav'); const kk=K(); const ilk=ilkAd();
   const dersler=burslulukDersleri();
@@ -1651,6 +1698,7 @@ function renderBursluluk(){
         +'<button class="mini-x" style="background:#fee2e2; color:#b91c1c; border:none; width:1.7rem; height:1.7rem; border-radius:50%; font-weight:900; cursor:pointer;" onclick="denemeSil('+idx+')">×</button></div>'; });
     h+='<div id="deneme-yorum" style="margin-top:.8rem;"></div></div>';
   }
+  h+=kolejBurslulukHTML();
   el.innerHTML=h;
 }
 const BURS_KAT={ tur:4, mat:4, fen:4, sb:2, ing:2, din:2 };
@@ -1694,6 +1742,57 @@ async function denemeYorum(i){
 }
 
 /* ==================== GELİŞİM RAPORU (Zugi tarzı — radar + AI uzman raporu) ==================== */
+
+/* ==================== İSTATİSTİK & AYLIK GELİŞİM ==================== */
+function ayEtiket(ym){ const a=['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara']; const [y,m]=ym.split('-'); return a[(+m)-1]+' '+String(y).slice(2); }
+function ortYuzde(beceri){ const v=BECERILER.map(b=>((beceri||{})[b.k]||0)/5*100); return Math.round(v.reduce((a,x)=>a+x,0)/v.length); }
+function istatistikHTML(){
+  const gg=AKTIF.gelisimGecmis||[], tg=AKTIF.testGecmis||[];
+  let h='<div class="card" style="border:2px solid #0ea5e9;"><h3 style="color:#0369a1;"><i class="fas fa-chart-line"></i> İstatistik & Gelişim Takibi</h3>';
+  // --- İlk kayıt vs bugün ---
+  if(gg.length){
+    const ilk=gg[0], ilkT=new Date(ilk.tarih); const gun=Math.max(0,Math.round((Date.now()-ilkT)/86400000));
+    const ilkOrt=ortYuzde(ilk.beceri), simOrt=ortYuzde(AKTIF.beceri), fark=simOrt-ilkOrt;
+    h+='<div style="display:flex; gap:.5rem; flex-wrap:wrap; justify-content:space-around; text-align:center; background:#f0f9ff; border-radius:1rem; padding:.7rem; margin-bottom:.8rem;">'
+      +'<div><div style="font-size:.66rem; font-weight:800; color:#64748b;">İLK KAYIT</div><div style="font-size:1.4rem; font-weight:900; color:#475569;">%'+ilkOrt+'</div><div style="font-size:.66rem; color:#94a3b8; font-weight:700;">'+ilkT.toLocaleDateString('tr-TR')+'</div></div>'
+      +'<div><div style="font-size:.66rem; font-weight:800; color:#64748b;">BUGÜN</div><div style="font-size:1.4rem; font-weight:900; color:#0369a1;">%'+simOrt+'</div><div style="font-size:.66rem; color:#94a3b8; font-weight:700;">'+gun+' gün sonra</div></div>'
+      +'<div><div style="font-size:.66rem; font-weight:800; color:#64748b;">TOPLAM GELİŞİM</div><div style="font-size:1.4rem; font-weight:900; color:'+(fark>=0?'#059669':'#dc2626')+';">'+(fark>=0?'+':'')+fark+'</div><div style="font-size:.66rem; color:#94a3b8; font-weight:700;">puan</div></div></div>';
+    // alan bazlı değişim
+    const degisim=BECERILER.map(b=>({b, f:Math.round((((AKTIF.beceri||{})[b.k]||0)-((ilk.beceri||{})[b.k]||0))/5*100)})).sort((a,c)=>c.f-a.f);
+    h+='<div style="font-weight:900; font-size:.84rem; color:#1e293b; margin:.2rem 0 .4rem;">📈 Alan bazlı gelişim (ilk kayıttan bugüne)</div>';
+    degisim.forEach(x=>{ const r=x.f>0?'#059669':(x.f<0?'#dc2626':'#94a3b8'); const ok=x.f>0?'▲':(x.f<0?'▼':'■');
+      h+='<div style="display:flex; align-items:center; gap:.5rem; padding:.3rem .2rem; border-bottom:1px dashed #eef2f7;"><span style="flex:1; font-size:.82rem; font-weight:800;">'+x.b.emoji+' '+x.b.ad+'</span><span style="font-weight:900; color:'+r+'; font-size:.85rem;">'+ok+' '+(x.f>0?'+':'')+x.f+'</span></div>'; });
+    const enIyi=degisim[0]; if(enIyi && enIyi.f>0) h+='<div class="tip-box" style="margin:.7rem 0 .2rem;">🏆 En çok gelişen alan: <b>'+enIyi.b.ad+'</b> (+'+enIyi.f+' puan). Tebrikler!</div>';
+    // aylık
+    const aylar={}; gg.forEach(x=>{ const ym=(x.tarih||'').slice(0,7); if(ym) aylar[ym]=ortYuzde(x.beceri); });
+    const ym=Object.keys(aylar).sort();
+    h+='<div style="font-weight:900; font-size:.84rem; color:#1e293b; margin:.9rem 0 .3rem;">🗓️ Aylık gelişim (beceri ortalaması)</div>';
+    h+= ym.length>=2 ? svgLine(ym.map(k=>aylar[k]), ym.map(ayEtiket)) : '<div class="hint" style="margin:0;">Aylık grafik için farklı aylarda en az 2 değerlendirme gerekir. Her ay "Yeniden Değerlendir" demen yeterli.</div>';
+  } else {
+    h+='<div class="hint" style="margin:0 0 .5rem;">Henüz değerlendirme kaydı yok. İlk değerlendirmeden sonra gelişim burada görünecek.</div>';
+  }
+  // --- Test / deneme istatistikleri ---
+  if(tg.length){
+    const ort=Math.round(tg.reduce((a,x)=>a+x.yuzde,0)/tg.length);
+    const now=Date.now(), g30=tg.filter(x=>now-new Date(x.tarih)<30*86400000), o30=tg.filter(x=>{ const d=now-new Date(x.tarih); return d>=30*86400000 && d<60*86400000; });
+    const a30=g30.length?Math.round(g30.reduce((a,x)=>a+x.yuzde,0)/g30.length):null, b30=o30.length?Math.round(o30.reduce((a,x)=>a+x.yuzde,0)/o30.length):null;
+    const soru=tg.reduce((a,x)=>a+x.toplam,0), dogru=tg.reduce((a,x)=>a+x.dogru,0);
+    h+='<div style="font-weight:900; font-size:.84rem; color:#1e293b; margin:1rem 0 .4rem;">✍️ Test & Deneme İstatistikleri</div>'
+      +'<div class="row3" style="text-align:center;">'
+      +'<div style="background:#f8fafc; border-radius:.8rem; padding:.5rem;"><div style="font-size:1.25rem; font-weight:900; color:#4338ca;">'+tg.length+'</div><div style="font-size:.64rem; font-weight:800; color:#64748b;">test çözüldü</div></div>'
+      +'<div style="background:#f8fafc; border-radius:.8rem; padding:.5rem;"><div style="font-size:1.25rem; font-weight:900; color:#059669;">'+dogru+'/'+soru+'</div><div style="font-size:.64rem; font-weight:800; color:#64748b;">doğru soru</div></div>'
+      +'<div style="background:#f8fafc; border-radius:.8rem; padding:.5rem;"><div style="font-size:1.25rem; font-weight:900; color:#f59e0b;">%'+ort+'</div><div style="font-size:.64rem; font-weight:800; color:#64748b;">genel başarı</div></div></div>';
+    if(a30!==null) h+='<div style="margin-top:.5rem; font-size:.82rem; font-weight:800; color:#334155; text-align:center;">Son 30 gün: <b>%'+a30+'</b>'+(b30!==null?(' · Önceki 30 gün: <b>%'+b30+'</b> → <span style="color:'+(a30>=b30?'#059669':'#dc2626')+';">'+(a30>=b30?'▲ +':'▼ ')+(a30-b30)+'</span>'):'')+'</div>';
+    const son=tg.slice(-10); if(son.length>=2){ h+='<div style="font-weight:800; font-size:.78rem; color:#64748b; margin:.7rem 0 .2rem;">Son '+son.length+' test başarı eğrisi (%)</div>'+svgLine(son.map(x=>x.yuzde), son.map((x,i)=>'T'+(tg.length-son.length+i+1))); }
+    const dersOrt={}; tg.forEach(x=>{ if(!x.ders||!DERS_MASTER[x.ders]) return; (dersOrt[x.ders]=dersOrt[x.ders]||[]).push(x.yuzde); });
+    const bar=Object.keys(dersOrt).map(k=>({label:DERS_GET(k).ad.split(' ')[0].slice(0,6), value:Math.round(dersOrt[k].reduce((a,x)=>a+x,0)/dersOrt[k].length), color:DERS_GET(k).renk}));
+    if(bar.length){ h+='<div style="font-weight:800; font-size:.78rem; color:#64748b; margin:.7rem 0 .2rem;">Ders bazlı başarı ortalaması (%)</div>'+svgBar(bar); }
+  } else {
+    h+='<div class="hint" style="margin:.7rem 0 0;">Test ve deneme çözdükçe başarı istatistikleri burada birikecek.</div>';
+  }
+  h+='<button class="btn btn-ghost btn-sm" style="width:100%; margin-top:.8rem;" onclick="window.print()">🖨️ İstatistikleri Yazdır / PDF</button></div>';
+  return h;
+}
 function renderGelisim(){
   const el=document.getElementById('view-gelisim'); const ilk=ilkAd(); const kk=K(); const veliMod=(kk.mod==='veli');
   const rad=radarItems(); const onceki=oncekiBeceri();
@@ -1720,6 +1819,8 @@ function renderGelisim(){
       +'<div class="smap-bar"><div class="smap-fill" style="width:'+x.v+'%; background:'+x.b.renk+'"></div></div>'
       +'<span class="smap-lvl" style="background:'+x.b.renk+'22; color:'+x.b.renk+'">%'+x.v+'</span></div>'; });
   h+='</div>';
+
+  h+=istatistikHTML();
 
   // Yeniden değerlendir
   h+='<div class="card" style="border:2px solid #a855f7;"><h3 style="color:#6d28d9;"><i class="fas fa-rotate"></i> Yeniden Değerlendir</h3>'
@@ -1757,7 +1858,7 @@ async function uzmanRaporUret(){
   const enGuclu=rad.slice().sort((a,b)=>b.value-a.value).slice(0,3).map(x=>x.label);
   const gelisecek=rad.slice().sort((a,b)=>a.value-b.value).slice(0,2).map(x=>x.label);
   const dersDurum=DERSLER_AKTIF().map(d=>d.ad+': '+LVL_AD[dersGuc(d.key)]).join(', ');
-  const veri='Öğrenci: '+tamAd()+' ('+kk.ad+(AKTIF.sube?(', '+AKTIF.sube):'')+'). Beceri profili: '+beceriMetni+'. Gelişim (önceki→şimdi): '+gelisimMetni+'. En güçlü: '+enGuclu.join(', ')+'. Gelişecek: '+gelisecek.join(', ')+'. Alan/ders durumu: '+dersDurum+'. Değerlendirme sayısı: '+((AKTIF.gelisimGecmis||[]).length)+'.';
+  const veri='Öğrenci: '+tamAd()+' ('+kk.ad+(AKTIF.sube?(', '+AKTIF.sube):'')+'). Beceri profili: '+beceriMetni+'. Gelişim (önceki→şimdi): '+gelisimMetni+'. En güçlü: '+enGuclu.join(', ')+'. Gelişecek: '+gelisecek.join(', ')+'. Alan/ders durumu: '+dersDurum+'. Değerlendirme sayısı: '+((AKTIF.gelisimGecmis||[]).length)+'.'+(function(){ const tg=AKTIF.testGecmis||[], gg=AKTIF.gelisimGecmis||[]; let t=''; if(gg.length) t+=' İlk kayıt ('+new Date(gg[0].tarih).toLocaleDateString("tr-TR")+') ortalaması %'+ortYuzde(gg[0].beceri)+', bugün %'+ortYuzde(AKTIF.beceri)+'.'; if(tg.length) t+=' Çözülen test: '+tg.length+', genel başarı %'+Math.round(tg.reduce((a,x)=>a+x.yuzde,0)/tg.length)+'.'; return t; })();
   const sys='Sen Değişim Koleji\'nin deneyimli rehber/gelişim uzmanısın. Veliye ve okul yönetimine sunulacak, RESMİ ama sıcak, profesyonel bir GELİŞİM RAPORU yaz. ÖNEMLİ: eğitim felsefemiz güç odaklıdır — önce ve ağırlıklı olarak GÜÇLÜ YÖNLERİ vurgula, gelişecek alanları "eksik" değil "filizlenen potansiyel" olarak nazikçe ele al. Abartma, sadece verilen verilere dayan, uydurma. Türkçe.';
   try{
     const t=await callText('Aşağıdaki verilerle '+ilk+' için profesyonel GELİŞİM RAPORU yaz. Yapı: <h4>Genel Değerlendirme</h4> (2-3 cümle, olumlu ve gerçekçi), <h4>⭐ Parlayan Yönler</h4> (en güçlü becerileri, somut ve öv), <h4>🌱 Filizlenen Alanlar</h4> (gelişecek alanları nazik, umut veren dille + nasıl desteklenir), <h4>📈 Gelişim Yolculuğu</h4> (varsa önceki-şimdi kıyası), <h4>🏠 Veliye Öneriler</h4> (evde yapılabilecek 3-4 somut, güç odaklı öneri), <h4>Uzman Notu</h4> (kısa, içten, umut dolu kapanış). Sonuna imza: "Değişim Koleji Rehberlik ve Gelişim Servisi".\n\nVERİLER: '+veri+RICH, sys);
@@ -1970,6 +2071,7 @@ function renderKaynak(){
   }
   // Hoca ile sohbet kısayolu
   h+='<div class="card" style="background:linear-gradient(135deg,#312e81,#4338ca);color:#fff;border:none;"><h3 style="color:#fff;">🦉 Yapay Zekâ Hoca</h3><p style="font-size:.82rem;font-weight:700;opacity:.92;margin:0 0 .7rem;line-height:1.5;">Aklına takılan her şeyi sor — ders, konu, etkinlik, motivasyon.</p><button class="btn btn-gold" onclick="hocaAc(\'genel\',{})">💬 Hoca ile Konuş</button></div>';
+  if(!isGelisim() && K().sinav!=='bursluluk') h+=kolejBurslulukHTML();
   el.innerHTML=h;
 }
 /* Pomodoro */
@@ -2477,7 +2579,7 @@ async function mzHavuzTest(){
     });
   }
   const ik={ok:'🟢',kota:'🟡',yavas:'🕓',invalid:'🔴'}, et={ok:' — çalışıyor',kota:' — kota dolu',yavas:' — yanıt gecikti (tekrar dene)',invalid:' — geçersiz'};
-  const sonuc=await Promise.all(arr.map((k,i)=> tekTest(k).then(d=>{ satir[i].innerHTML='<span>'+ik[d]+'</span> '+mzMaskele(k)+et[d]; return d; }).catch(()=>{ satir[i].innerHTML='<span>🔴</span> '+mzMaskele(k)+' — hata'; return 'invalid'; })));
+  const sonuc=await Promise.all(arr.map((k,i)=> tekTest(k).then(d=>{ if(d==='ok') kotaTemizle(k); else if(d==='kota') kotaIsaretle(k); satir[i].innerHTML='<span>'+ik[d]+'</span> '+mzMaskele(k)+et[d]; return d; }).catch(()=>{ satir[i].innerHTML='<span>🔴</span> '+mzMaskele(k)+' — hata'; return 'invalid'; })));
   const say=x=>sonuc.filter(y=>y===x).length; const c=say('ok');
   const ozet=document.createElement('div'); ozet.style.cssText='font-weight:900; font-size:.84rem; margin-top:.5rem; padding:.55rem; background:#ecfdf5; border-radius:.6rem; color:#065f46; text-align:center;';
   ozet.innerHTML='📊 '+c+' çalışıyor 🟢 · '+say('kota')+' kota 🟡'+(say('yavas')?' · '+say('yavas')+' gecikti 🕓':'')+' · '+say('invalid')+' geçersiz 🔴<br>(toplam '+arr.length+' anahtar)'
@@ -2867,7 +2969,7 @@ function kalemGeri(){ if(!KALEM.gecmis.length) return; const img=KALEM.gecmis.po
 function kalemTemizle(){ const cv=KALEM.cv; if(cv&&KALEM.ctx){ kalemAnlik(); KALEM.ctx.clearRect(0,0,cv.width,cv.height); } }
 
 /* ==================== OTOMATİK GÜNCELLEME KONTROLÜ (eski sürüm kalmasın) ==================== */
-const APP_SURUM='2026-09-25';
+const APP_SURUM='v6.0 · 27.09.2026';
 var SURUM_DAMGA=null, SURUM_BILDIRILDI=false;
 async function surumDamgasi(){
   try{
